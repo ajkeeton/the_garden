@@ -1,15 +1,10 @@
 
-Garden of the Wads
+**Garden of the Wads**
 
-Wadsworth
+*Wadsworth*
 
-The Venus Hippy Trap
+*The Venus Hippy Trap*
 
 Note the PWM controllers / GPIOs
 
-The Little Wads
-
-PCBs
-
-3D Models
-
+*The Little Wads*
