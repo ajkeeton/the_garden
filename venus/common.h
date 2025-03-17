@@ -4,6 +4,7 @@
 #include <Adafruit_PWMServoDriver.h>
 #include <stdint.h>
 
+#define USE_DIAG_PIN true
 #define STEP_DEF_END 9000
 
 #define DELAY_MIN 70 // in MICRO seconds

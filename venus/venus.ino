@@ -64,7 +64,7 @@ void setup() {
 
   steppers[3].pos_end = 7000;
   steppers[3].set_target(7000);
-  
+
   #ifdef USE_PWM_DRIVER
 
   steppers[4].init(4, STEP_EN_5, STEP_PULSE_5, STEP_DIR_5, 
@@ -79,8 +79,15 @@ void setup() {
                    -1, -1, 80, DELAY_MAX*4);
   #endif
 
-
   Serial.println("Starting...");
+
+  finger_stretch();
+}
+
+void finger_stretch() {
+  // Make each finger extend and retract independently 
+  for(int i=0; i<NUM_STEPPERS; i++)
+    steppers[i].state = steppers[i].state_next = STEP_SWEEP; // STEP_FIND_ENDPOINT_1;
 }
 
 void loop() {
@@ -92,6 +99,7 @@ void loop() {
 
   for(int i=0; i<NUM_STEPPERS; i++)
     steppers[i].run();
+  // steppers[0].run();
 
   //uint32_t diff = millis() - t;
   //if(!avg)
