@@ -8,7 +8,7 @@
 #define STEP_DEF_END 9000
 
 #define DELAY_MIN 70 // in MICRO seconds
-#define DELAY_MAX 550 // in MICRO seconds
+#define DELAY_MAX 500 // in MICRO seconds
 
 // Using a pair of PWM drivers to expand the number of usable outputs
 #if USING_PWM_DRIVER
@@ -53,23 +53,27 @@
 
 #endif
 
-// These inputs are from the mux pins
-#define LIMIT_SWITCH_LOW_1 0
-#define LIMIT_SWITCH_HIGH_1 1
+/////////////////////////////////////////
+// Following values are for the mux pins
+#define LIMIT_SWITCH_LOW_1 15
+#define LIMIT_SWITCH_HIGH_1 14
 
-#define LIMIT_SWITCH_LOW_2 2
-#define LIMIT_SWITCH_HIGH_2 3
+#define LIMIT_SWITCH_LOW_2 13
+#define LIMIT_SWITCH_HIGH_2 12
 
-#define LIMIT_SWITCH_LOW_3 4
-#define LIMIT_SWITCH_HIGH_3 5
+#define LIMIT_SWITCH_LOW_3 11
+#define LIMIT_SWITCH_HIGH_3 10
 
-#define LIMIT_SWITCH_LOW_4 6
-#define LIMIT_SWITCH_HIGH_4 7
+#define LIMIT_SWITCH_LOW_4 9
+#define LIMIT_SWITCH_HIGH_4 8
 
+// Dip switches
+#define INPUT_SWITCH_0 0 
+#define INPUT_SWITCH_1 1
+#define INPUT_SWITCH_2 2
+
+// Sensors
 #define SENS_IN_1 15
 #define SENS_IN_2 14
 #define SENS_IN_3 13
-
-#define DIP_0 0
-#define DIP_1 1
-
+/////////////////////////////////////////

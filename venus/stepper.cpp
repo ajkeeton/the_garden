@@ -40,15 +40,27 @@ void Stepper::choose_next() {
       state = STEP_RANDOM_WALK;
       choose_next_rand_walk();
       break;
+    case STEP_CLOSE:
+      state = STEP_CLOSE;
+      state_next = STEP_OPEN;
+      set_target(INT_MAX);  // Force us to the upper limit
+
+      tpause = 50 * 1000;
+      Serial.printf("Doing close - %u %u\n", tpause, t_pulse_delay);
+      break;
+    case STEP_OPEN:
+      state = STEP_OPEN;
+      state_next = STEP_CLOSE;
+      set_target(-INT_MAX); // Force us to find the lower limit
+
+      tpause = 3000 * 1000;
+      t_pulse_delay = pulse_delay_min;
+      set_onoff(STEPPER_OFF);
+      Serial.printf("Doing open - %u %u\n", tpause, t_pulse_delay);
+      break;
     case STEP_SWEEP:
+      choose_next_sweep();
       Serial.printf("Doing sweep - %u %u\n", tpause, t_pulse_delay);
-      state = STEP_SWEEP;
-      if(forward) {
-        set_target(pos_start);
-      } 
-      else {
-        set_target(pos_end);
-      }
       break;
     default:
       break;
@@ -62,65 +74,78 @@ void Stepper::choose_next_sweep() {
   cur_num_steps = 0;
   tpause = 1000; 
   tpause *= 1000; // to micros
-  t_pulse_delay = delay_max;
+  t_pulse_delay = pulse_delay_max;
 
   if(position == pos_end) {
-    set_target(pos_start);
-    //set_onoff(false);
+    set_target(0);
     Serial.printf("%d: At end\n", idx);
     //delay(1000);
   }
   else {
     set_target(pos_end);
     Serial.printf("%d: At start, cooling off 1 sec\n", idx);
-    //set_onoff(false);
+    set_onoff(STEPPER_OFF);
     //delay(1000);
   }
 
   tlast = micros();
+  accel.reset();
 }
 
 void Stepper::randomize_delay() {
   tpause = random(100, 1000); 
   tpause *= 1000; // to micros
 
-  t_pulse_delay = random(delay_min, delay_max);
+  t_pulse_delay = random(pulse_delay_min, pulse_delay_max);
 }
 
 void Stepper::set_forward(bool f) {
   if(forward != f) {
-    tpause = max(30000, tpause); // min 30 ms before reversing
+    tpause = max(20000, tpause); // min 20 ms before reversing
     cur_num_steps = 0;
   }
 
   forward = f;
   // Serial.printf("direction: %d\n", forward);
   if(forward) {
-    digitalWrite(pin_dir, HIGH);
+    digitalWrite(pin_dir, val_forward);
   }
   else {
-    digitalWrite(pin_dir, LOW);
+    digitalWrite(pin_dir, val_backward);
   }
 }
 
 void Stepper::set_target(int32_t tgt, uint32_t tp, uint32_t td) {
+  // XXX This is all hosed on account of acceleration/decel 
+  // but I don't have time to fix it
+
+  t_pulse_delay = accel.delay_max;
+
   if(tp)
-    t_pulse_delay = tp;
-  if(td)
-    t_pulse_delay = td;
+    accel.set_target(tp);
+  else if(td)
+    accel.set_target(td);
+  else
+    accel.set_target(accel.delay_min);
 
   pos_tgt = tgt;
 
-  if(pos_tgt > position)
-    pos_decel = (pos_tgt - position) * .9;
-  else
-    pos_decel = (position - pos_tgt) * .9;
+  if(pos_tgt > position) {
+    pos_to_decel = (pos_tgt - position) * .9;
+    accel.point_to_accel = (pos_tgt - position) * .1;
+  }
+  else {
+    pos_to_decel = (position - pos_tgt) * .9;
+    accel.point_to_accel = (position - pos_tgt) * .1;
+  }
+
+  accel.point_to_decel = pos_to_decel;
 
   if(pos_tgt < position)
     set_forward(false);
   else
     set_forward(true);
-  
+
   cur_num_steps = 0;
   
   Serial.printf("%d: Position: %d, New target: %d End: %d fwd/back: %d\n", idx, position, pos_tgt, pos_end, forward);
@@ -137,81 +162,46 @@ void Stepper::run() {
 
   set_onoff(STEPPER_ON);
 
-  // XXX Need to handle case we were already triggered
-  if(false && check_limit()) {
-    if(!at_limit) {
-      if(forward) {
-        // Handle case we're reversed
-        if(pos_end < 0)
-          pos_end = position + 1;
+  switch(limits.check_triggered()) {
+    case TRIGGER_ON:
+        if(limits.triggered_high) {
+          // if(!forward) // set reversed
+          position--;
+          pos_tgt = pos_end = position;
+          Serial.printf("At high limit, new end: %u\n", pos_end);
+        }
+        else {
+          // if(forward) // set reversed
+          //pos_tgt = pos_start = position + 1;
+          pos_tgt = position = 1;
+          Serial.printf("At low limit\n");
+        }
+        break;
+    case TRIGGER_WAIT:
+        // Continue moving in our current direction even though triggered
+        if((position == pos_end) && forward || !position && !forward) {
+          pos_tgt = position;
+          break;
+        }
+    default:
+        if(forward)
+          position++;
         else
-          pos_end = position - 1;
+          position--;
 
-        Serial.printf("At limit, new end: %u\n", pos_end);
-      }
-      else {
-        // Handle case we're reversed
-        if(pos_start > pos_end)
-          pos_start = position - 1;
-        else
-          pos_start = position + 1;
-
-        Serial.printf("At limit, new start: %u\n", pos_start);
-      }
-
-      at_limit = true;
-    }
+        digitalWrite(pin_step, step_pin_val);
+        step_pin_val = !step_pin_val;
+        cur_num_steps++;  
+        t_pulse_delay = accel.next(cur_num_steps);
+      break;
   }
-  else
-    at_limit = false;
 
-  if(forward)
-    position++;
-  else
-    position--;
-
-  digitalWrite(pin_step, step_pin_val);
-  step_pin_val = !step_pin_val;
-  cur_num_steps++;
-
-  //if(!(cur_num_steps % 2500))
-  //  Serial.printf("delay: %u, position: %d, fwd/back: %d, num_step: %d, tgt: %d, decel @: %d\n", 
-  ///    tdelay, position, forward, cur_num_steps, pos_tgt, pos_decel);
-
-  //if(position > pos_end)
-  //  pos_end = position; // Once we hit the end limit switch this will be correct
-
-  #if 0
-  // https://www.littlechip.co.nz/blog/a-simple-stepper-motor-control-algorithm
-  // accel
-  if(cur_num_steps < pos_decel) {
-    //Serial.print("accel - ");
-    //tdelay = tdelay * (4 * cur_num_steps - 1) / (4 * cur_num_steps + 1);
-    //tdelay = tdelay * (4 * cur_num_steps) / (4 * cur_num_steps + 1);
-    t_pulse_delay--;
-  }
-  // decel
-  else
-    //tdelay = tdelay * (4 * cur_num_steps + 1) / (4 * cur_num_steps - 1);
-    //tdelay = tdelay * (4 * cur_num_steps + 1) / (4 * cur_num_steps);
-    t_pulse_delay++;
-  #endif
-
-  //Serial.printf("raw: %d\n", tdelay);
-
-  if(t_pulse_delay < delay_min)
-    t_pulse_delay = delay_min;
-  if(t_pulse_delay > delay_max)
-    t_pulse_delay = delay_max;
-
-  // Serial.printf("position: %ld vs %ld\n", position, pos_tgt);
+  Serial.printf("%d: position: %ld vs %ld (end: %u)\n", idx, position, pos_tgt, pos_end);
   
   if(position != pos_tgt)
     return;
 
-  Serial.printf("At target! Pos: %d Num steps: %d\n", position, cur_num_steps);
+  Serial.printf("%d: At target! Pos: %d Num steps: %d\n", idx, position, cur_num_steps);
 
   choose_next();
-
-  //delay(2000);
 }

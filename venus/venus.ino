@@ -3,6 +3,7 @@
 #include "stepper.h"
 
 Mux_Read mux;
+Wifi wifi;
 
 #if USE_PWM_DRIVER
 Adafruit_PWMServoDriver step_dir = Adafruit_PWMServoDriver(0x40);
@@ -44,67 +45,120 @@ void setup() {
   pinMode(MUX_IN1, INPUT);
  
   steppers[0].init(0, STEP_EN_1, STEP_PULSE_1, STEP_DIR_1, 
-                   LIMIT_SWITCH_LOW_1, LIMIT_SWITCH_HIGH_1, 80, DELAY_MAX*4);
+                   LIMIT_SWITCH_LOW_1, LIMIT_SWITCH_HIGH_1, 80, DELAY_MAX);
   steppers[1].init(1, STEP_EN_2, STEP_PULSE_2, STEP_DIR_2, 
-                   LIMIT_SWITCH_LOW_2, LIMIT_SWITCH_HIGH_2, 80, DELAY_MAX*4);
+                   LIMIT_SWITCH_LOW_2, LIMIT_SWITCH_HIGH_2, 80, DELAY_MAX);
   steppers[2].init(2, STEP_EN_3, STEP_PULSE_3, STEP_DIR_3, 
-                   LIMIT_SWITCH_LOW_3, LIMIT_SWITCH_HIGH_3, 80, DELAY_MAX*4);
+                   LIMIT_SWITCH_LOW_3, LIMIT_SWITCH_HIGH_3, 80, DELAY_MAX);
   steppers[3].init(3, STEP_EN_4, STEP_PULSE_4, STEP_DIR_4, 
-                   LIMIT_SWITCH_LOW_4, LIMIT_SWITCH_HIGH_4, 80, DELAY_MAX*4);
+                   LIMIT_SWITCH_LOW_4, LIMIT_SWITCH_HIGH_4, 80, DELAY_MAX);
 
   // Trial and err'd. Perhaps overwrite remotely at runtime?
   steppers[0].pos_end = 9000;
   steppers[0].set_target(9000);
+  steppers[0].set_backwards();
 
-  steppers[1].pos_end = 7000;
-  steppers[1].set_target(7000);
+  steppers[1].pos_end = 9000;
+  steppers[1].set_target(9000);
 
-  steppers[2].pos_end = 7000;
-  steppers[2].set_target(7000);
+  steppers[2].pos_end = 9000;
+  steppers[2].set_target(9000);
+  steppers[2].set_backwards();
 
-  steppers[3].pos_end = 7000;
-  steppers[3].set_target(7000);
+  steppers[3].pos_end = 9000;
+  steppers[3].set_target(9000);
 
   #ifdef USE_PWM_DRIVER
 
   steppers[4].init(4, STEP_EN_5, STEP_PULSE_5, STEP_DIR_5, 
-                   -1, -1, 80, DELAY_MAX*4);
+                   -1, -1, 80, DELAY_MAX);
   steppers[5].init(5, STEP_EN_6, STEP_PULSE_6, STEP_DIR_6, 
-                   -1, -1, 80, DELAY_MAX*4);
+                   -1, -1, 80, DELAY_MAX);
   steppers[6].init(6, STEP_EN_7, STEP_PULSE_7, STEP_DIR_7, 
-                   -1, -1, 80, DELAY_MAX*4);
+                   -1, -1, 80, DELAY_MAX);
   steppers[7].init(7, STEP_EN_8, STEP_PULSE_8, STEP_DIR_8, 
-                   -1, -1, 80, DELAY_MAX*4);
+                   -1, -1, 80, DELAY_MAX);
   steppers[8].init(8, STEP_EN_9, STEP_PULSE_9, STEP_DIR_9, 
-                   -1, -1, 80, DELAY_MAX*4);
+                   -1, -1, 80, DELAY_MAX);
   #endif
 
   Serial.println("Starting...");
 
-  finger_stretch();
+  wifi.init();
+  init_mode();
 }
 
-void finger_stretch() {
+void init_mode() {
+  int i1 = mux.read_switch(INPUT_SWITCH_0);
+  int i2 = mux.read_switch(INPUT_SWITCH_1);
+  int i3 = mux.read_switch(INPUT_SWITCH_2);
+
+  STEP_STATE mode = DEFAULT_MODE;
+  STEP_STATE mode_next = DEFAULT_MODE_NEXT;
+
+  Serial.print("Setting mode to: ");
+
+  switch(i1 + i2 << 1 + i3 << 2) {
+    case 1:
+      mode = STEP_CLOSE;
+      //mode_next = STATE_OPEN;
+      Serial.println("close");
+      break;
+    case 2:
+      mode = STEP_OPEN;
+      //mode_next = STATE_CLOSE;
+      Serial.println("open");
+      break;
+    case 3:
+      mode = STEP_SWEEP;
+      Serial.println("sweep");
+      break;
+    case 4:
+      mode = STEP_RANDOM_WALK;
+      Serial.println("random walk");
+    case 0:
+    default:
+      Serial.printf("default (%d)\n", mode);
+      break;
+  };
+
   // Make each finger extend and retract independently 
-  for(int i=0; i<NUM_STEPPERS; i++)
-    steppers[i].state = steppers[i].state_next = STEP_SWEEP; // STEP_FIND_ENDPOINT_1;
+  for(int i=0; i<NUM_STEPPERS; i++) {
+    steppers[i].state = mode;
+    steppers[i].state_next = mode_next; // STEP_FIND_ENDPOINT_1;
+  }
+}
+
+void benchmark() {
+  static uint32_t iterations = 0;
+  static float avg = 0;
+  static uint32_t last = 0;
+  static uint32_t last_output = millis();
+
+  uint32_t now = millis();
+  uint32_t diff = now - last;
+  last = now;
+
+  if(!iterations)
+    avg = diff;
+  else
+    // Poor-mans moving average
+    avg = (avg * 4 + diff)/5;
+
+  // NOTE: This will skew the measurement for the next iteration
+  // Need extra work to keep accurate, but that's a pretty low priority
+  if(now - last_output < 1000)
+    return;
+
+  Serial.printf("Benchmark: %f ms\n", avg);
+  last_output = now;
 }
 
 void loop() {
   blink();
-
-  static uint32_t iterations = 0;
-  static float avg = 0;
-  uint32_t t = millis();
-
+  mux.next();
+  benchmark();
+  
   for(int i=0; i<NUM_STEPPERS; i++)
     steppers[i].run();
-  // steppers[0].run();
-
-  //uint32_t diff = millis() - t;
-  //if(!avg)
-  //  avg = diff;n
-  //else
-  //avg = (avg * 4 + diff)/5;
 }
-
