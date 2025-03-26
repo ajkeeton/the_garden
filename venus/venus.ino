@@ -44,29 +44,21 @@ void setup() {
   pinMode(MUX_EN, OUTPUT);
   pinMode(MUX_IN1, INPUT);
  
+  // XXX High switches are currently ignored XXX
+
   steppers[0].init(0, STEP_EN_1, STEP_PULSE_1, STEP_DIR_1, 
-                   LIMIT_SWITCH_LOW_1, LIMIT_SWITCH_HIGH_1, 80, DELAY_MAX);
+                   LIMIT_SWITCH_LOW_1, LIMIT_SWITCH_HIGH_1, DELAY_MIN, DELAY_MAX);
   steppers[1].init(1, STEP_EN_2, STEP_PULSE_2, STEP_DIR_2, 
-                   LIMIT_SWITCH_LOW_2, LIMIT_SWITCH_HIGH_2, 80, DELAY_MAX);
+                   LIMIT_SWITCH_LOW_2, LIMIT_SWITCH_HIGH_2, DELAY_MIN, DELAY_MAX);
   steppers[2].init(2, STEP_EN_3, STEP_PULSE_3, STEP_DIR_3, 
-                   LIMIT_SWITCH_LOW_3, LIMIT_SWITCH_HIGH_3, 80, DELAY_MAX);
+                   LIMIT_SWITCH_LOW_3, LIMIT_SWITCH_HIGH_3, DELAY_MIN, DELAY_MAX);
   steppers[3].init(3, STEP_EN_4, STEP_PULSE_4, STEP_DIR_4, 
-                   LIMIT_SWITCH_LOW_4, LIMIT_SWITCH_HIGH_4, 80, DELAY_MAX);
+                   LIMIT_SWITCH_LOW_4, LIMIT_SWITCH_HIGH_4, DELAY_MIN, DELAY_MAX);
 
-  // Trial and err'd. Perhaps overwrite remotely at runtime?
-  steppers[0].pos_end = 9000;
-  steppers[0].set_target(9000);
+  steppers[0].pos_end = 6000;
   steppers[0].set_backwards();
-
-  steppers[1].pos_end = 9000;
-  steppers[1].set_target(9000);
-
-  steppers[2].pos_end = 9000;
-  steppers[2].set_target(9000);
+  steppers[1].set_backwards();
   steppers[2].set_backwards();
-
-  steppers[3].pos_end = 9000;
-  steppers[3].set_target(9000);
 
   #ifdef USE_PWM_DRIVER
 
@@ -94,7 +86,6 @@ void init_mode() {
   int i3 = mux.read_switch(INPUT_SWITCH_2);
 
   STEP_STATE mode = DEFAULT_MODE;
-  STEP_STATE mode_next = DEFAULT_MODE_NEXT;
 
   Serial.print("Setting mode to: ");
 
@@ -122,10 +113,10 @@ void init_mode() {
       break;
   };
 
-  // Make each finger extend and retract independently 
   for(int i=0; i<NUM_STEPPERS; i++) {
-    steppers[i].state = mode;
-    steppers[i].state_next = mode_next; // STEP_FIND_ENDPOINT_1;
+    steppers[i].state_next = mode;
+    steppers[i].choose_next();
+    steppers[i].state_next = STEP_SWEEP;
   }
 }
 
@@ -158,7 +149,7 @@ void loop() {
   blink();
   mux.next();
   benchmark();
-  
+
   for(int i=0; i<NUM_STEPPERS; i++)
     steppers[i].run();
 }

@@ -4,11 +4,11 @@
 #include <Adafruit_PWMServoDriver.h>
 #include <stdint.h>
 
-#define USE_DIAG_PIN true
-#define STEP_DEF_END 9000
-
+//#define NO_LIMIT_SWITCH
+#define DEFAULT_MAX_STEPS 6000
+#define ACCEL_CONST_DIV 20000
 #define DELAY_MIN 70 // in MICRO seconds
-#define DELAY_MAX 500 // in MICRO seconds
+#define DELAY_MAX 1500 // in MICRO seconds
 
 // Using a pair of PWM drivers to expand the number of usable outputs
 #if USING_PWM_DRIVER
@@ -55,6 +55,8 @@
 
 /////////////////////////////////////////
 // Following values are for the mux pins
+//
+// XXX High switches are currently ignored XXX
 #define LIMIT_SWITCH_LOW_1 15
 #define LIMIT_SWITCH_HIGH_1 14
 

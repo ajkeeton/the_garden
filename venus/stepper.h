@@ -14,11 +14,11 @@ enum STEP_STATE {
   STEP_RANDOM_WALK,
   STEP_SWEEP,
   STEP_CLOSE, // Close fingers to test range, confirm direction, etc
-  STEP_OPEN,  // Opposite above
+  STEP_OPEN,  // Opposite above, sets '0' based on limit switch
 };
 
-#define DEFAULT_MODE STEP_CLOSE
-#define DEFAULT_MODE_NEXT STEP_OPEN
+#define DEFAULT_MODE STEP_OPEN
+//#define DEFAULT_MODE_NEXT STEP_SWEEP
 
 #define STEPPER_OFF false
 #define STEPPER_ON true
@@ -152,97 +152,53 @@ enum ACCEL_STATE {
 
 class Accel {
 public:
-  uint32_t delay_current = 0,
-           delay_target = 0;
+  uint32_t delay_current = 0;
   uint32_t delay_min = 0,
-           delay_max = 0;
+           delay_max = 0,
+           def_default_min = 0,
+           def_default_max = 0;
 
+  /*
   uint32_t point_to_accel = 0,
            point_to_decel = 0,
            point_start = 0;
+  */
+
+  uint32_t t_move_started = 0;
+  uint32_t accel_val = 1,
+           decel_val = 1;
+
   ACCEL_STATE state = ACCEL_NEUTRAL;
   
   void init(uint32_t dmin, uint32_t dmax) {
-    delay_min = dmin;
-    delay_max = dmax;
+    def_default_min = delay_min = dmin;
+    def_default_max = delay_max = dmax;
     delay_current = dmax;
+    state = ACCEL_UP;
   }
 
-  void set_target(uint32_t tgt) {
-    delay_target = tgt;
+  void set_target(uint32_t a, uint32_t d = 0) {
+    if(!d) d = a;
+    accel_val = a;
+    decel_val = d;
+
     delay_current = delay_max;
     state = ACCEL_UP;
+    t_move_started = micros();
   }
 
   void reset() {
-    delay_target = delay_min;
-    delay_current = delay_max;
-    state = ACCEL_UP;
+    init(def_default_min, def_default_max);
   }
 
-  uint32_t next(uint32_t cur_num_steps) {
-    // XXX Crappy not really accelleration / deceleration
-
-    //Serial.printf("wtf: %u and %d\n", delay_current, cur_num_steps - point_to_accel);
-
-    if(cur_num_steps < point_to_accel)
-      delay_current--;
-    
-    if(cur_num_steps > point_to_decel)
-      delay_current++;
-    
-    delay_current = max(delay_current, delay_min);
-    delay_current = min(delay_current, delay_max);
-    //delay_current -= n;
-
-    //Serial.printf("cur: %u and %u\n", delay_current, cur_num_steps);
-
-    return delay_current;
-
-    /*
-    delay_current = delay_current - ((2.0 * (float)delay_current) / ((4.0 * (float)steps) + 1));
-
-    //delay_current = max(delay_current, delay_min);
-    //delay_current = min(delay_current, delay_max);
-
-    if(delay_current != 0 && delay_current != delay_min && delay_current != delay_max)
-      Serial.printf("cur: %u vs %u and %u\n", delay_current, delay_min, delay_max);
-    //delay(500);
-    */
-
-    /*
-    // https://www.littlechip.co.nz/blog/a-simple-stepper-motor-control-algorithm
-    switch(state) {
-      case ACCEL_UP:
-          if(delay_current > delay_target) {
-            delay_current = delay_current * (4 * cur_num_steps - 1) / (4 * cur_num_steps + 1);
-            //delay_current = max(delay_min, delay_current);
-            if(delay_current < delay_target)
-              delay_current = delay_target;
-            else
-              Serial.printf("accel cur: %u\n", delay_current);
-          }
-          else 
-            // XXX With the current implementation this is redundant ... 
-            // once the delay has shrunk to the target we stop changing it anyway
-            state = ACCEL_NEUTRAL;
-          break;
-      case ACCEL_DOWN:
-          if(delay_current < delay_max) {
-            delay_current = delay_current * (4 * cur_num_steps + 1) / (4 * cur_num_steps - 1);
-            if(delay_current > delay_max) 
-              delay_current = delay_max;
-            
-            Serial.printf("decel cur: %u vs %u\n", delay_current, delay_max);
-          }
-          break;
-      default:
-          break;
-    }
-    */
-
-    return delay_current;
+  void set_decel(uint32_t cur) {
+    // If it's time to decel, reset the move start and calc the inverse
+    state = ACCEL_DOWN;
+    delay_current = cur;
+    t_move_started = micros();
   }
+
+  uint32_t next();
 };
 
 class Stepper {
@@ -257,7 +213,7 @@ public:
 
   int32_t position = 1,
           pos_tgt = -INT_MAX, // Our target position
-          pos_end = INT_MAX,  // Set when we hit the endpoint
+          pos_end = DEFAULT_MAX_STEPS,
           pos_to_decel = 0,
           cur_num_steps = 0;
   
@@ -333,7 +289,7 @@ public:
   void choose_next_rand_walk();
   void randomize_delay();
   void set_forward(bool f);
-  void set_target(int32_t tgt, uint32_t tp = 0, uint32_t td = 0);
+  void set_target(int32_t tgt);
 
   void run();
 };

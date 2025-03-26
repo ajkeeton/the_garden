@@ -8,7 +8,7 @@ void Stepper::choose_next() {
 
       // XXX Add random pause and delay
       if(forward)
-        set_target(INT_MAX);
+        set_target(pos_end);
       else 
         set_target(-INT_MAX);
 
@@ -23,7 +23,7 @@ void Stepper::choose_next() {
         set_target(-INT_MAX);
       }
       else {
-        set_target(INT_MAX);
+        set_target(pos_end);
       }
 
       randomize_delay();
@@ -43,7 +43,8 @@ void Stepper::choose_next() {
     case STEP_CLOSE:
       state = STEP_CLOSE;
       state_next = STEP_OPEN;
-      set_target(INT_MAX);  // Force us to the upper limit
+      set_target(pos_end);
+      //set_target(INT_MAX);  // Force us to the upper limit
 
       tpause = 50 * 1000;
       Serial.printf("Doing close - %u %u\n", tpause, t_pulse_delay);
@@ -77,19 +78,18 @@ void Stepper::choose_next_sweep() {
   t_pulse_delay = pulse_delay_max;
 
   if(position == pos_end) {
-    set_target(0);
-    Serial.printf("%d: At end\n", idx);
+    Serial.printf("%d: At end. Reversing\n", idx);
+    set_target(-INT_MAX);
     //delay(1000);
   }
   else {
     set_target(pos_end);
-    Serial.printf("%d: At start, cooling off 1 sec\n", idx);
+    Serial.printf("%d: At start, cooling off\n", idx);
     set_onoff(STEPPER_OFF);
     //delay(1000);
   }
 
   tlast = micros();
-  accel.reset();
 }
 
 void Stepper::randomize_delay() {
@@ -115,31 +115,33 @@ void Stepper::set_forward(bool f) {
   }
 }
 
-void Stepper::set_target(int32_t tgt, uint32_t tp, uint32_t td) {
-  // XXX This is all hosed on account of acceleration/decel 
-  // but I don't have time to fix it
+void Stepper::set_target(int32_t tgt) {
+  #ifdef NO_LIMIT_SWITCH
+  if(tgt == -INT_MAX)
+    tgt = 0;
+  #endif
 
   t_pulse_delay = accel.delay_max;
-
-  if(tp)
-    accel.set_target(tp);
-  else if(td)
-    accel.set_target(td);
-  else
-    accel.set_target(accel.delay_min);
+  accel.set_target(16, 10);
 
   pos_tgt = tgt;
 
   if(pos_tgt > position) {
-    pos_to_decel = (pos_tgt - position) * .9;
-    accel.point_to_accel = (pos_tgt - position) * .1;
+    // closing / grabbing
+    pos_to_decel = (pos_tgt - position) * .8;
+
+    // XXX experimenting
+    accel.delay_current /= 4; 
+    t_pulse_delay /= 4;
+    // XXX
   }
   else {
-    pos_to_decel = (position - pos_tgt) * .9;
-    accel.point_to_accel = (position - pos_tgt) * .1;
+    // opening
+    if(tgt == -INT_MAX)
+      pos_to_decel = position * .4;
+    else
+      pos_to_decel = (position - pos_tgt) * .4;
   }
-
-  accel.point_to_decel = pos_to_decel;
 
   if(pos_tgt < position)
     set_forward(false);
@@ -161,7 +163,7 @@ void Stepper::run() {
   tlast = now;
 
   set_onoff(STEPPER_ON);
-
+  
   switch(limits.check_triggered()) {
     case TRIGGER_ON:
         if(limits.triggered_high) {
@@ -172,8 +174,7 @@ void Stepper::run() {
         }
         else {
           // if(forward) // set reversed
-          //pos_tgt = pos_start = position + 1;
-          pos_tgt = position = 1;
+          pos_tgt = position = 0;
           Serial.printf("At low limit\n");
         }
         break;
@@ -192,12 +193,17 @@ void Stepper::run() {
         digitalWrite(pin_step, step_pin_val);
         step_pin_val = !step_pin_val;
         cur_num_steps++;  
-        t_pulse_delay = accel.next(cur_num_steps);
+        t_pulse_delay = accel.next();
       break;
   }
 
-  Serial.printf("%d: position: %ld vs %ld (end: %u)\n", idx, position, pos_tgt, pos_end);
+  if(!(position % 200) || position == pos_tgt)
+    Serial.printf("%d: position: %ld. Target: %ld (pulse delay: %u, decel @ %ld)\n", 
+      idx, position, pos_tgt, t_pulse_delay, pos_to_decel);
   
+  if(position == pos_to_decel)
+    accel.set_decel(t_pulse_delay);
+
   if(position != pos_tgt)
     return;
 

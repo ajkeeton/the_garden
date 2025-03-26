@@ -1,5 +1,4 @@
 
 void test() {
 
-#warning found
 }
