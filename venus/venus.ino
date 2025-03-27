@@ -116,7 +116,7 @@ void init_mode() {
   for(int i=0; i<NUM_STEPPERS; i++) {
     steppers[i].state_next = mode;
     steppers[i].choose_next();
-    steppers[i].state_next = STEP_SWEEP;
+    steppers[i].state_next = STEP_WIGGLE_START;
   }
 }
 
@@ -150,6 +150,7 @@ void loop() {
   mux.next();
   benchmark();
 
+//  steppers[2].run();
   for(int i=0; i<NUM_STEPPERS; i++)
     steppers[i].run();
 }

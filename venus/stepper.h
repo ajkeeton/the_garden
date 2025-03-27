@@ -15,6 +15,7 @@ enum STEP_STATE {
   STEP_SWEEP,
   STEP_CLOSE, // Close fingers to test range, confirm direction, etc
   STEP_OPEN,  // Opposite above, sets '0' based on limit switch
+  STEP_RELAX, // 90%'ish full open stretch
 };
 
 #define DEFAULT_MODE STEP_OPEN
@@ -214,8 +215,7 @@ public:
   int32_t position = 1,
           pos_tgt = -INT_MAX, // Our target position
           pos_end = DEFAULT_MAX_STEPS,
-          pos_to_decel = 0,
-          cur_num_steps = 0;
+          pos_to_decel = 0;
   
   bool forward = true,
        was_on = false;
@@ -287,6 +287,7 @@ public:
   void choose_next();
   void choose_next_sweep();
   void choose_next_rand_walk();
+  void choose_next_wiggle();
   void randomize_delay();
   void set_forward(bool f);
   void set_target(int32_t tgt);

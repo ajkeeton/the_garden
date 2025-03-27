@@ -7,8 +7,8 @@
 //#define NO_LIMIT_SWITCH
 #define DEFAULT_MAX_STEPS 6000
 #define ACCEL_CONST_DIV 20000
-#define DELAY_MIN 70 // in MICRO seconds
-#define DELAY_MAX 1500 // in MICRO seconds
+#define DELAY_MIN 75 // in MICRO seconds
+#define DELAY_MAX 5000 // in MICRO seconds
 
 // Using a pair of PWM drivers to expand the number of usable outputs
 #if USING_PWM_DRIVER
