@@ -4,11 +4,13 @@
 #include <Adafruit_PWMServoDriver.h>
 #include <stdint.h>
 
-//#define NO_LIMIT_SWITCH
+#define NO_LIMIT_SWITCH
+
+#define SENS_THOLD 400
 #define DEFAULT_MAX_STEPS 6000
-#define ACCEL_CONST_DIV 20000
+#define ACCEL_CONST_DIV 5000
 #define DELAY_MIN 75 // in MICRO seconds
-#define DELAY_MAX 5000 // in MICRO seconds
+#define DELAY_MAX 10000 // in MICRO seconds
 
 // Using a pair of PWM drivers to expand the number of usable outputs
 #if USING_PWM_DRIVER
@@ -75,7 +77,9 @@
 #define INPUT_SWITCH_2 2
 
 // Sensors
-#define SENS_IN_1 15
-#define SENS_IN_2 14
-#define SENS_IN_3 13
+#define SENS_IN_1 3
+#define SENS_IN_2 4
+#define SENS_IN_3 5
+#define SENS_IN_4 9
+
 /////////////////////////////////////////

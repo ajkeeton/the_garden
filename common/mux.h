@@ -73,4 +73,8 @@ public:
     next();
     return vals[pin] > 512;
   }
+
+  uint32_t read_raw(int pin) {
+    return vals[pin];
+  }
 };

@@ -59,6 +59,48 @@ public:
   }
   */
 
+  TRIGGER_STAT check_triggered(int pin, bool &trigger_state) {
+    int ls = !mux.read_switch(pin);
+
+    uint32_t now = millis();
+
+    if(trigger_state) {
+    // We were previously triggered
+    // Check if we're no longer
+      if(!ls) {
+        // We're no longer triggered
+        // sort of debounce
+        if(now - last_trigger_on > 10) {
+          trigger_state = false;
+        }
+      }
+      else {
+        last_trigger_on = now;
+      }
+
+      return TRIGGER_WAIT;
+    }
+
+    trigger_state = ls;
+
+    if(trigger_state) {
+      last_trigger_on = millis();
+      return TRIGGER_ON;
+    }
+
+    return TRIGGER_OFF;
+  }
+
+  TRIGGER_STAT check_triggered() {
+    TRIGGER_STAT stat_low = check_triggered(pin_low, triggered_low);
+    return stat_low;
+    #if 0
+    TRIGGER_STATE stat_high = check_triggered(pin_high, triggered_high);
+    ...
+    #endif
+  }
+
+#if 0
   TRIGGER_STAT check_triggered() {
     int clow = !mux.read_switch(pin_low);
     int chigh = !mux.read_switch(pin_high);
@@ -112,6 +154,7 @@ public:
 
     return TRIGGER_OFF;
   }
+#endif
 
 private:
 /*
@@ -166,8 +209,12 @@ public:
   */
 
   uint32_t t_move_started = 0;
-  uint32_t accel_val = 1,
-           decel_val = 1;
+  //uint32_t accel_val = 1,
+  //         decel_val = 1;
+
+  // Accerlation is implemented using x/a0 + x**2/a1
+  uint32_t accel_0 = 1,
+           accel_1 = 100;
 
   ACCEL_STATE state = ACCEL_NEUTRAL;
   
@@ -178,6 +225,7 @@ public:
     state = ACCEL_UP;
   }
 
+  #if 0
   void set_target(uint32_t a, uint32_t d = 0) {
     if(!d) d = a;
     accel_val = a;
@@ -186,6 +234,19 @@ public:
     delay_current = delay_max;
     state = ACCEL_UP;
     t_move_started = micros();
+  }
+  #endif
+  void set_target(uint32_t a0, uint32_t a1) {
+    accel_0 = a0;
+    accel_1 = a1;
+    delay_current = delay_max;
+    state = ACCEL_UP;
+    t_move_started = micros();
+  }
+
+  void set_target(uint32_t delay_init, uint32_t a0, uint32_t a1) {
+    set_target(a0, a1);
+    delay_current = delay_init;
   }
 
   void reset() {
@@ -231,6 +292,8 @@ public:
   int val_forward = HIGH,
       val_backward = LOW;
 
+  uint32_t last_close = 0;
+  
   Limit_State limits;
   Accel accel;
 
@@ -291,6 +354,6 @@ public:
   void randomize_delay();
   void set_forward(bool f);
   void set_target(int32_t tgt);
-
+  void trigger_close();
   void run();
 };

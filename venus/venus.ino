@@ -2,6 +2,10 @@
 #include "common.h"
 #include "stepper.h"
 
+#ifdef NO_LIMIT_SWITCH
+#warning IGNORING LIMIT SWITCH - ASSUMING 0 IS CORRECT
+#endif
+
 Mux_Read mux;
 Wifi wifi;
 
@@ -17,6 +21,8 @@ Stepper steppers[NUM_STEPPERS];
 
 void setup() {
   Serial.begin(9600);
+
+  while(!Serial) {}
 
   pinMode(STEP_PULSE_1, OUTPUT);
   pinMode(STEP_PULSE_2, OUTPUT);
@@ -145,12 +151,39 @@ void benchmark() {
   last_output = now;
 }
 
+void log_inputs() {
+  static uint32_t last = 0;
+  uint32_t now = millis();
+
+  if(now - last < 500)
+    return;
+
+  last = now;
+
+  Serial.printf("Mux:");
+
+  for(int i=0; i<16; i++)
+    Serial.printf("\t%d", mux.read_raw(i));
+
+  Serial.println();
+}
+
 void loop() {
   blink();
   mux.next();
   benchmark();
+  //log_inputs();
 
-//  steppers[2].run();
-  for(int i=0; i<NUM_STEPPERS; i++)
+  // Check if sensors triggered
+  uint32_t sens = mux.read_raw(SENS_IN_4);
+
+  if(sens > SENS_THOLD) {
+    //Serial.printf("Triggered: %ld\n", sens);
+      for(int i=0; i<1; i++) {
+        steppers[i].trigger_close();
+      }
+  }
+
+  for(int i=0; i<1; i++)
     steppers[i].run();
 }
