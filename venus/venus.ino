@@ -49,22 +49,57 @@ void setup() {
   pinMode(MUX4, OUTPUT);
   pinMode(MUX_EN, OUTPUT);
   pinMode(MUX_IN1, INPUT);
- 
-  // XXX High switches are currently ignored XXX
+
+  Serial.println("Starting...");
+
+  init_steppers();
+  wifi.init();
+  mux.init();
+  init_mode();
+}
+
+void init_steppers() {
+
 
   steppers[0].init(0, STEP_EN_1, STEP_PULSE_1, STEP_DIR_1, 
-                   LIMIT_SWITCH_LOW_1, LIMIT_SWITCH_HIGH_1, DELAY_MIN, DELAY_MAX);
+                   LIMIT_SWITCH_LOW_1, DELAY_MIN, DELAY_MAX);
   steppers[1].init(1, STEP_EN_2, STEP_PULSE_2, STEP_DIR_2, 
-                   LIMIT_SWITCH_LOW_2, LIMIT_SWITCH_HIGH_2, DELAY_MIN, DELAY_MAX);
+                   LIMIT_SWITCH_LOW_2, DELAY_MIN, DELAY_MAX);
   steppers[2].init(2, STEP_EN_3, STEP_PULSE_3, STEP_DIR_3, 
-                   LIMIT_SWITCH_LOW_3, LIMIT_SWITCH_HIGH_3, DELAY_MIN, DELAY_MAX);
+                   LIMIT_SWITCH_LOW_3, DELAY_MIN, DELAY_MAX);
   steppers[3].init(3, STEP_EN_4, STEP_PULSE_4, STEP_DIR_4, 
-                   LIMIT_SWITCH_LOW_4, LIMIT_SWITCH_HIGH_4, DELAY_MIN, DELAY_MAX);
+                   LIMIT_SWITCH_LOW_4, DELAY_MIN, DELAY_MAX);
 
-  steppers[0].pos_end = 6000;
+  step_settings_t ss;
+
+  ss.pause_ms = 50;
+  ss.accel = 0.000005;
+  ss.min_delay = 80;
+  steppers[0].settings_on_close = ss;
+  
+  ss.pause_ms = 100;
+  steppers[1].settings_on_close = ss;
+
+  ss.accel = 0.000015;
+  ss.pause_ms = 800;
+  ss.min_delay = 250;
+  steppers[2].settings_on_close = ss;
+
+  ss.accel = 0.000005;
+  ss.pause_ms = 0; // randomly chosen
+  ss.min_delay = 750; // scale down based on excitement
+  ss.max_delay = 10000;
+  ss.min_pos = 0;
+  ss.max_pos = 2000; // scale up based on excitement
+  steppers[0].settings_on_wiggle = ss;
+  steppers[1].settings_on_wiggle = ss;
+  steppers[2].settings_on_wiggle = ss;
+
   steppers[0].set_backwards();
   steppers[1].set_backwards();
   steppers[2].set_backwards();
+  steppers[3].set_backwards();
+  steppers[3].pos_end = 7500;
 
   #ifdef USE_PWM_DRIVER
 
@@ -79,11 +114,6 @@ void setup() {
   steppers[8].init(8, STEP_EN_9, STEP_PULSE_9, STEP_DIR_9, 
                    -1, -1, 80, DELAY_MAX);
   #endif
-
-  Serial.println("Starting...");
-
-  wifi.init();
-  init_mode();
 }
 
 void init_mode() {
@@ -121,8 +151,8 @@ void init_mode() {
 
   for(int i=0; i<NUM_STEPPERS; i++) {
     steppers[i].state_next = mode;
-    steppers[i].choose_next();
-    steppers[i].state_next = STEP_WIGGLE_START;
+    steppers[i].choose_next(); // necessary to initialize targets, speeds, etc
+    steppers[i].state_next = DEFAULT_MODE_NEXT; // STEP_SWEEP; // STEP_WIGGLE_START;
   }
 }
 
@@ -171,19 +201,27 @@ void log_inputs() {
 void loop() {
   blink();
   mux.next();
-  benchmark();
+  //benchmark();
   //log_inputs();
 
   // Check if sensors triggered
   uint32_t sens = mux.read_raw(SENS_IN_4);
 
-  if(sens > SENS_THOLD) {
-    //Serial.printf("Triggered: %ld\n", sens);
+  static uint32_t last = 0;
+  uint32_t now = millis();
+
+  if(now > last + 10000) {
+      last = now;
+  //if(sens > SENS_THOLD) {
+      Serial.printf("Triggered: %ld\n", sens);
       for(int i=0; i<1; i++) {
         steppers[i].trigger_close();
       }
+      //delay(1000);
   }
 
-  for(int i=0; i<1; i++)
-    steppers[i].run();
+  steppers[0].run();
+
+  //for(int i=0; i<NUM_STEPPERS; i++)
+  //  steppers[i].run();
 }
