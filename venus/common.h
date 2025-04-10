@@ -7,8 +7,13 @@
 //#define NO_LIMIT_SWITCH
 
 #define SENS_THOLD 400
+
+#ifdef SHORT_RAILS
 #define DEFAULT_MAX_STEPS 6000
-//#define ACCEL_CONST_DIV 100
+#else
+#define DEFAULT_MAX_STEPS 8500
+#endif
+
 #define DELAY_MIN 80 // in MICRO seconds
 #define DELAY_MAX 10000 // in MICRO seconds
 

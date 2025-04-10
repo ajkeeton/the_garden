@@ -14,7 +14,7 @@ Adafruit_PWMServoDriver step_dir = Adafruit_PWMServoDriver(0x40);
 Adafruit_PWMServoDriver step_en = Adafruit_PWMServoDriver(0x41);
 #define NUM_STEPPERS 9
 #else
-#define NUM_STEPPERS 4
+#define NUM_STEPPERS 3
 #endif
 
 Stepper steppers[NUM_STEPPERS];
@@ -59,34 +59,32 @@ void setup() {
 }
 
 void init_steppers() {
-
-
   steppers[0].init(0, STEP_EN_1, STEP_PULSE_1, STEP_DIR_1, 
                    LIMIT_SWITCH_LOW_1, DELAY_MIN, DELAY_MAX);
   steppers[1].init(1, STEP_EN_2, STEP_PULSE_2, STEP_DIR_2, 
                    LIMIT_SWITCH_LOW_2, DELAY_MIN, DELAY_MAX);
   steppers[2].init(2, STEP_EN_3, STEP_PULSE_3, STEP_DIR_3, 
                    LIMIT_SWITCH_LOW_3, DELAY_MIN, DELAY_MAX);
-  steppers[3].init(3, STEP_EN_4, STEP_PULSE_4, STEP_DIR_4, 
-                   LIMIT_SWITCH_LOW_4, DELAY_MIN, DELAY_MAX);
+  //steppers[3].init(3, STEP_EN_4, STEP_PULSE_4, STEP_DIR_4, 
+  //                LIMIT_SWITCH_LOW_4, DELAY_MIN, DELAY_MAX);
 
   step_settings_t ss;
 
-  ss.pause_ms = 50;
-  ss.accel = 0.000005;
+  ss.pause_ms = 10;
+  ss.accel = 0.00015;
   ss.min_delay = 80;
   steppers[0].settings_on_close = ss;
   
-  ss.pause_ms = 100;
+  ss.pause_ms = 10;
   steppers[1].settings_on_close = ss;
 
-  ss.accel = 0.000015;
-  ss.pause_ms = 800;
-  ss.min_delay = 250;
+  ss.accel = 0.00015;
+  ss.pause_ms = 400;
+  ss.min_delay = 150;
   steppers[2].settings_on_close = ss;
 
-  ss.accel = 0.000005;
-  ss.pause_ms = 0; // randomly chosen
+  ss.accel = 0.000002;
+  ss.pause_ms = 50;
   ss.min_delay = 750; // scale down based on excitement
   ss.max_delay = 10000;
   ss.min_pos = 0;
@@ -97,9 +95,7 @@ void init_steppers() {
 
   steppers[0].set_backwards();
   steppers[1].set_backwards();
-  steppers[2].set_backwards();
-  steppers[3].set_backwards();
-  steppers[3].pos_end = 7500;
+  //steppers[3].set_backwards();
 
   #ifdef USE_PWM_DRIVER
 
@@ -152,7 +148,7 @@ void init_mode() {
   for(int i=0; i<NUM_STEPPERS; i++) {
     steppers[i].state_next = mode;
     steppers[i].choose_next(); // necessary to initialize targets, speeds, etc
-    steppers[i].state_next = DEFAULT_MODE_NEXT; // STEP_SWEEP; // STEP_WIGGLE_START;
+    steppers[i].state_next = mode; //  DEFAULT_MODE_NEXT; // STEP_SWEEP; // STEP_WIGGLE_START;
   }
 }
 
@@ -201,8 +197,8 @@ void log_inputs() {
 void loop() {
   blink();
   mux.next();
-  //benchmark();
-  //log_inputs();
+  benchmark();
+  log_inputs();
 
   // Check if sensors triggered
   uint32_t sens = mux.read_raw(SENS_IN_4);
@@ -210,18 +206,21 @@ void loop() {
   static uint32_t last = 0;
   uint32_t now = millis();
 
-  if(now > last + 10000) {
+  if(now > last + 5000) {
       last = now;
-  //if(sens > SENS_THOLD) {
-      Serial.printf("Triggered: %ld\n", sens);
-      for(int i=0; i<1; i++) {
+  #if 0
+  if(sens > SENS_THOLD) {
+      if(now > last + 500) {
+        last = now;
+        //Serial.printf("Triggered: %ld\n", sens);
+      }
+      #endif
+      for(int i=0; i<NUM_STEPPERS; i++) {
         steppers[i].trigger_close();
       }
       //delay(1000);
   }
 
-  steppers[0].run();
-
-  //for(int i=0; i<NUM_STEPPERS; i++)
-  //  steppers[i].run();
+  for(int i=0; i<NUM_STEPPERS; i++)
+    steppers[i].run();
 }

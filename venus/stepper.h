@@ -7,9 +7,8 @@
 extern Mux_Read mux;
 
 enum STEP_STATE {
-  STEP_DEFAULT,
-  STEP_FIND_ENDPOINT_1,
-  STEP_FIND_ENDPOINT_2,
+  STEP_INIT,
+  //STEP_FIND_ENDPOINT,
   STEP_WIGGLE_START,
   STEP_WIGGLE_END,
   STEP_RANDOM_WALK,
@@ -22,7 +21,7 @@ enum STEP_STATE {
   STEP_RELAX, // 90%'ish full open stretch
 };
 
-#define DEFAULT_MODE STEP_OPEN
+#define DEFAULT_MODE STEP_INIT
 #define DEFAULT_MODE_NEXT STEP_WIGGLE_START
 
 #define STEPPER_OFF false
@@ -130,8 +129,8 @@ public:
        was_on = false;
   int step_pin_val = 0;
   
-  STEP_STATE state = STEP_OPEN,
-             state_next = STEP_DEFAULT;
+  STEP_STATE state = DEFAULT_MODE,
+             state_next = DEFAULT_MODE_NEXT;
 
   int pin_step = 0,
       pin_dir = 0,
@@ -160,7 +159,7 @@ public:
 
     was_on = true;
     set_onoff(STEPPER_OFF);
-    state = STEP_FIND_ENDPOINT_1;
+    state = DEFAULT_MODE;
 
     limits.init(lsl);
     accel.init(dmin, dmax);

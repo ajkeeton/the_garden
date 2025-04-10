@@ -44,7 +44,7 @@ int32_t Accel::next_plat() {
     // We're at the midway point, use the time elapsed to determine time remaining
     t_move_started = micros();
     time_to_target = td;
-    Serial.printf("Decelerating. TTT: %lu\n", time_to_target);
+    // Serial.printf("Decelerating. TTT: %lu\n", time_to_target);
     return delay_current;
   }
   float et = 0;
