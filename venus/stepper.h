@@ -21,7 +21,7 @@ enum STEP_STATE {
   STEP_RELAX, // 90%'ish full open stretch
 };
 
-#define DEFAULT_MODE STEP_INIT
+#define DEFAULT_MODE STEP_SWEEP
 #define DEFAULT_MODE_NEXT STEP_WIGGLE_START
 
 #define STEPPER_OFF false

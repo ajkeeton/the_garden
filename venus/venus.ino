@@ -53,9 +53,12 @@ void setup() {
   Serial.println("Starting...");
 
   init_steppers();
-  wifi.init();
   mux.init();
   init_mode();
+}
+
+void setup1() {
+  wifi.init();
 }
 
 void init_steppers() {
@@ -206,7 +209,8 @@ void loop() {
   static uint32_t last = 0;
   uint32_t now = millis();
 
-  if(now > last + 5000) {
+  #if 0
+  if(now > last + 15000) {
       last = now;
   #if 0
   if(sens > SENS_THOLD) {
@@ -217,10 +221,15 @@ void loop() {
       #endif
       for(int i=0; i<NUM_STEPPERS; i++) {
         steppers[i].trigger_close();
-      }
+      } 
       //delay(1000);
   }
+  #endif
 
   for(int i=0; i<NUM_STEPPERS; i++)
     steppers[i].run();
+}
+
+void loop1() {
+  wifi.run();
 }
