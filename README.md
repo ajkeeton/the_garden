@@ -5,8 +5,6 @@
 
 *The Venus Hippy Trap*
 
-Note the PWM controllers / GPIOs
-
 *The Little Wads*
 
 *Maki's Squishy Thing*
