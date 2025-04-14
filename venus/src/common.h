@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 //#define NO_LIMIT_SWITCH
-
 #define SENS_THOLD 400
 
 //#define SHORT_RAILS

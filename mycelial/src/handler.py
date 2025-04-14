@@ -42,7 +42,7 @@ class ProtocolHandler:
 
     def handle_ping(self, payload):
         # Echo the payload back to the client
-        print(f"Handling ping message with payload: {payload}")
+        print(f"Handling {len(payload)} byte ping message with payload: {payload}")
         response = (1).to_bytes(2, byteorder='big')  # Message type: 1 (ping)
         response += (1).to_bytes(2, byteorder='big')  # Version: 1
         response += len(payload).to_bytes(2, byteorder='big')  # Length of payload
@@ -54,14 +54,13 @@ class ProtocolHandler:
         print(f"Handling log message with payload: {payload}")
 
     def handle_sensor(self, payload):
-        # Parse the index and value from the payload
-        if len(payload) < 8:
+        if len(payload) < 4:
             print(f"Invalid sensor payload: {payload}")
             return
         
         # Extract index (4 bytes) and value (4 bytes)
-        index = int.from_bytes(payload[0:4], byteorder='big')
-        value = int.from_bytes(payload[4:8], byteorder='big')
+        index = int.from_bytes(payload[0:2], byteorder='big')
+        value = int.from_bytes(payload[2:4], byteorder='big')
         
         print(f"Handling sensor message - Index: {index}, Value: {value}")
         # Add additional logic to process the sensor data if needed

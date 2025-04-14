@@ -5,12 +5,14 @@ void Stepper::choose_next() {
 
   switch (state) {
     case STEP_INIT:
-      if(DEFAULT_MODE_NEXT == STEP_SWEEP)
+      if (DEFAULT_MODE_NEXT == STEP_SWEEP)
         state_next = STEP_SWEEP;
       else
         state_next = STEP_CLOSE;
 
+#ifdef DEBUG_STEP
       Serial.printf("%d: Initializing\n", idx);
+#endif
       set_target(-INT_MAX);
       accel.accel_0 = 0.00015;
       break;
@@ -51,24 +53,32 @@ void Stepper::choose_next() {
       set_target(pos_end);
 
       accel.set_pause_ms(10);
+#ifdef DEBUG_STEP
       Serial.printf("%d: Doing close\n", idx);
+#endif
       break;
     case STEP_OPEN:
       set_target(-INT_MAX);  // Force us to find the lower limit
       set_onoff(STEPPER_OFF);
       accel.set_pause_ms(100);
 
+#ifdef DEBUG_STEP
       Serial.printf("%d: Doing open\n", idx);
+#endif
       state_next = STEP_RELAX;
       break;
     case STEP_RELAX:
       state_next = STEP_WIGGLE_START;
       set_onoff(STEPPER_OFF);
       accel.set_pause_ms(2500);
+#ifdef DEBUG_STEP
       Serial.printf("%d: Doing relax\n", idx);
+#endif
       break;
     case STEP_TRIGGERED_INIT:
+#ifdef DEBUG_STEP
       Serial.printf("%d: trigger init - opening\n", idx);
+#endif
 
       if (position > 1000)
         set_target(-INT_MAX, settings_on_close);
@@ -77,20 +87,26 @@ void Stepper::choose_next() {
     case STEP_GRAB:
       set_target(pos_end, settings_on_close);
       accel.set_pause_ms(settings_on_close.pause_ms);
+#ifdef DEBUG_STEP
       Serial.printf("%d: Doing grab\n", idx);
+#endif
       state_next = STEP_GRAB_WIGGLE;
       break;
     case STEP_GRAB_WIGGLE:
       choose_next_wiggle(pos_end * .85, pos_end * .98);
       accel.set_pause_ms(random(10, 50));
 
+#ifdef DEBUG_STEP
       Serial.printf("%d: Doing grab wiggle\n", idx);
+#endif
       state_next = STEP_OPEN;
       /*
       if(!(random()%5)) {
           set_target(-INT_MAX, settings_on_wiggle);
           state_next = STEP_OPEN;
+#ifdef DEBUG_STEP
           Serial.printf("%d: time to open again\n", idx);
+#endif
       }
       else
           state_next = STEP_GRAB;
@@ -127,7 +143,9 @@ void Stepper::choose_next_wiggle(int32_t lower, int32_t upper) {
   nxt = min(nxt, upper);
   nxt = max(lower, nxt);
 
+#ifdef DEBUG_STEP
   Serial.printf("%d: wiggle next: from %ld to %ld\n", idx, position, nxt);
+#endif
 
   set_target(nxt);
 }
@@ -136,11 +154,15 @@ void Stepper::choose_next_sweep() {
   accel.set_pause_ms(1000);
 
   if (position == pos_end) {
+#ifdef DEBUG_STEP
     Serial.printf("%d: At end. Reversing\n", idx);
+#endif
     set_target(-INT_MAX);
   } else {
     set_target(pos_end);
+#ifdef DEBUG_STEP
     Serial.printf("%d: At start, cooling off\n", idx);
+#endif
     set_onoff(STEPPER_OFF);
   }
 
@@ -223,7 +245,8 @@ void Stepper::set_target(int32_t tgt, const step_settings_t &ss) {
 void Stepper::run() {
   uint32_t now = millis();
 
-  if(now - last_log > 1000) {
+#ifdef DEBUG_STEP
+  if (now - last_log > 1000) {
     uint32_t us = micros();
     Serial.printf("%d: Position: %ld, Target: %ld, State: %d, Fwd/Back: %d, Accel Delay: %ld, A0: %f, is ready: %d (%lu < %lu, %d)\n",
       idx, position, pos_tgt == -INT_MAX ? -99999 : pos_tgt, 
@@ -231,6 +254,7 @@ void Stepper::run() {
       us, accel.t_pause_for, us - accel.t_last_update < accel.delay_current);
     last_log = now;
   }
+#endif
 
   if (!accel.is_ready())
     return;
@@ -247,7 +271,9 @@ void Stepper::run() {
 
   switch (ls) {
     case TRIGGER_ON:
+#ifdef DEBUG_STEP
       Serial.printf("%d: At low limit\n", idx);
+#endif
       position = 0;
       set_target(10);
       break;
@@ -298,7 +324,9 @@ void Stepper::trigger_close() {
 
   last_close = now;
 
+#ifdef DEBUG_STEP
   Serial.printf("%d: Triggered\n", idx);
+#endif
 
   state_next = STEP_TRIGGERED_INIT;
   choose_next();

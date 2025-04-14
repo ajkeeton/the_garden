@@ -202,7 +202,9 @@ void loop1() {
   blink();
   // benchmark();
   mux.next();
+  #ifdef DEBUG_STEP
   log_inputs();
+  #endif
 
   // Check if sensors triggered
   uint32_t sens = mux.read_raw(SENS_IN_1);

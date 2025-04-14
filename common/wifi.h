@@ -12,8 +12,9 @@ public:
 
     void init();
     void run();
-    void discover_server();
+    bool discover_server();
     bool send_msg(uint16_t type, uint16_t len, char *payload);
     bool send_msg(uint16_t type, const String &payload);
     bool send_sensor_msg(uint16_t type, uint16_t index, uint16_t value);
+    bool read_msg();
 };

@@ -20,7 +20,7 @@ class Garden:
                 del self.connections[addr]
                 print(f"Removed connection: {addr}")
 
-    def broadcast_message(self, message):
+    def broadcast(self, message):
         with self.lock:
             for addr, connection in self.connections.items():
                 try:
@@ -31,21 +31,34 @@ class Garden:
 
     def generate_messages(self):
         while True:
-            time.sleep(10)  # Generate messages every 10 seconds
-            message = b"Hello from the Garden!"  # Example message
-            self.broadcast_message(message)
+            time.sleep(10)  
 
-def handle_client(client_socket, addr, garden):
+            msg_type = 1
+            version = 1
+            payload = b"server ping"
+            length = len(payload)
+
+            message = (
+                msg_type.to_bytes(2, byteorder="big") +
+                version.to_bytes(2, byteorder="big") +
+                length.to_bytes(2, byteorder="big") +
+                payload
+            )
+
+            print("Broadcasting ping message to all clients...")
+            self.broadcast(message)
+
+def handle_client(csock, addr, garden):
     print(f"Connection from {addr}")
-    garden.add_connection(addr, client_socket)
+    garden.add_connection(addr, csock)
     try:
-        protocol_handler = ProtocolHandler(client_socket)
+        protocol_handler = ProtocolHandler(csock)
         protocol_handler.handle_connection()
     except Exception as e:
         print(f"Error handling connection from {addr}: {e}")
     finally:
         garden.remove_connection(addr)
-        client_socket.close()
+        csock.close()
         print(f"Connection with {addr} closed")
 
 def advertise_service(port):
@@ -68,9 +81,10 @@ def main():
     host = '0.0.0.0'
     port = 7777
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow address reuse
+    sock.bind((host, port))
+    sock.listen()
 
     print(f"Listening for connections on {host}:{port}...")
 
@@ -84,15 +98,15 @@ def main():
 
     try:
         while True:
-            client_socket, addr = server_socket.accept()
-            cthread = threading.Thread(target=handle_client, args=(client_socket, addr, garden))
+            csock, addr = sock.accept()
+            cthread = threading.Thread(target=handle_client, args=(csock, addr, garden))
             cthread.daemon = True  # Ensure threads exit when the main program exits
             cthread.start()
     except KeyboardInterrupt:
         print("Shutting down server...")
     finally:
         zeroconf.close()
-        server_socket.close()
+        sock.close()
 
 if __name__ == "__main__":
     main()
