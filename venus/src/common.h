@@ -1,13 +1,13 @@
 #pragma once
 
 #include <Wire.h>
-#include <Adafruit_PWMServoDriver.h>
 #include <stdint.h>
 
 //#define NO_LIMIT_SWITCH
 
 #define SENS_THOLD 400
 
+#define SHORT_RAILS
 #ifdef SHORT_RAILS
 #define DEFAULT_MAX_STEPS 6000
 #else
@@ -19,6 +19,7 @@
 
 // Using a pair of PWM drivers to expand the number of usable outputs
 #if USING_PWM_DRIVER
+#include <Adafruit_PWMServoDriver.h>
 
 #define STEP_EN_1 1
 #define STEP_EN_2 2
@@ -54,30 +55,26 @@
 #define STEP_PULSE_3 8
 #define STEP_DIR_3 7
 
-#define STEP_EN_4 6
-#define STEP_PULSE_4 5
-#define STEP_DIR_4 4
-
 #endif
 
 /////////////////////////////////////////
-// Following values are for the mux pins
+// Following values are for the *mux* pins
 //
-// XXX High switches are currently ignored XXX
-#define LIMIT_SWITCH_LOW_1 15
-#define LIMIT_SWITCH_LOW_2 14
-#define LIMIT_SWITCH_LOW_3 13
-#define LIMIT_SWITCH_LOW_4 12
+//#define LIMIT_SWITCH_LOW_1 15
+//#define LIMIT_SWITCH_LOW_2 14
+//#define LIMIT_SWITCH_LOW_3 13
+
+#define LIMIT_SWITCH_LOW_1 12
+#define LIMIT_SWITCH_LOW_2 11
+#define LIMIT_SWITCH_LOW_3 10
 
 // Dip switches
-#define INPUT_SWITCH_0 0 
-#define INPUT_SWITCH_1 1
-#define INPUT_SWITCH_2 2
+#define INPUT_SWITCH_0 15 
+#define INPUT_SWITCH_1 14
 
 // Sensors
-#define SENS_IN_1 3
-#define SENS_IN_2 4
-#define SENS_IN_3 5
-#define SENS_IN_4 9
+#define SENS_IN_1 13
+//#define SENS_IN_2 14
+//#define SENS_IN_3 13
 
 /////////////////////////////////////////

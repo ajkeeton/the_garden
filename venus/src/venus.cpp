@@ -1,6 +1,7 @@
-#include "src/common.h"
-#include "common.h"
+#include "common/common.h"
+#include "common/wifi.h"
 #include "stepper.h"
+#include "leds.h"
 
 #ifdef NO_LIMIT_SWITCH
 #warning IGNORING LIMIT SWITCH - ASSUMING 0 IS CORRECT
@@ -8,6 +9,7 @@
 
 Mux_Read mux;
 Wifi wifi;
+leds_t leds;
 
 #if USE_PWM_DRIVER
 Adafruit_PWMServoDriver step_dir = Adafruit_PWMServoDriver(0x40);
@@ -19,48 +21,6 @@ Adafruit_PWMServoDriver step_en = Adafruit_PWMServoDriver(0x41);
 
 Stepper steppers[NUM_STEPPERS];
 
-void setup() {
-  Serial.begin(9600);
-
-  while(!Serial) {}
-
-  pinMode(STEP_PULSE_1, OUTPUT);
-  pinMode(STEP_PULSE_2, OUTPUT);
-  pinMode(STEP_PULSE_3, OUTPUT);
-  pinMode(STEP_PULSE_4, OUTPUT);
-
-  pinMode(STEP_DIR_1, OUTPUT);
-  pinMode(STEP_DIR_2, OUTPUT);
-  pinMode(STEP_DIR_3, OUTPUT);
-  pinMode(STEP_DIR_4, OUTPUT);
-
-  pinMode(STEP_EN_1, OUTPUT);
-  pinMode(STEP_EN_2, OUTPUT);
-  pinMode(STEP_EN_3, OUTPUT);
-  pinMode(STEP_EN_4, OUTPUT);
-
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, HIGH);
-
-  // Mux
-  pinMode(MUX1, OUTPUT);
-  pinMode(MUX2, OUTPUT);
-  pinMode(MUX3, OUTPUT);
-  pinMode(MUX4, OUTPUT);
-  pinMode(MUX_EN, OUTPUT);
-  pinMode(MUX_IN1, INPUT);
-
-  Serial.println("Starting...");
-
-  init_steppers();
-  mux.init();
-  init_mode();
-}
-
-void setup1() {
-  wifi.init();
-}
-
 void init_steppers() {
   steppers[0].init(0, STEP_EN_1, STEP_PULSE_1, STEP_DIR_1, 
                    LIMIT_SWITCH_LOW_1, DELAY_MIN, DELAY_MAX);
@@ -68,9 +28,7 @@ void init_steppers() {
                    LIMIT_SWITCH_LOW_2, DELAY_MIN, DELAY_MAX);
   steppers[2].init(2, STEP_EN_3, STEP_PULSE_3, STEP_DIR_3, 
                    LIMIT_SWITCH_LOW_3, DELAY_MIN, DELAY_MAX);
-  //steppers[3].init(3, STEP_EN_4, STEP_PULSE_4, STEP_DIR_4, 
-  //                LIMIT_SWITCH_LOW_4, DELAY_MIN, DELAY_MAX);
-
+ 
   step_settings_t ss;
 
   ss.pause_ms = 10;
@@ -98,7 +56,10 @@ void init_steppers() {
 
   steppers[0].set_backwards();
   steppers[1].set_backwards();
-  //steppers[3].set_backwards();
+
+  #ifdef SHORT_RAILS
+  steppers[2].set_backwards();
+  #endif
 
   #ifdef USE_PWM_DRIVER
 
@@ -118,7 +79,7 @@ void init_steppers() {
 void init_mode() {
   int i1 = mux.read_switch(INPUT_SWITCH_0);
   int i2 = mux.read_switch(INPUT_SWITCH_1);
-  int i3 = mux.read_switch(INPUT_SWITCH_2);
+  int i3 = 0; //int i3 = mux.read_switch(INPUT_SWITCH_2);
 
   STEP_STATE mode = DEFAULT_MODE;
 
@@ -154,6 +115,46 @@ void init_mode() {
     steppers[i].state_next = mode; //  DEFAULT_MODE_NEXT; // STEP_SWEEP; // STEP_WIGGLE_START;
   }
 }
+void wait_serial() {
+  uint32_t now = millis();
+
+  // Wait up to 5 seconds for serial
+  while(!Serial && millis() - now < 5000) {
+    delay(100);
+  }  
+}
+
+void setup1() {
+  Serial.begin(9600);
+  wait_serial();
+
+  pinMode(STEP_PULSE_1, OUTPUT);
+  pinMode(STEP_PULSE_2, OUTPUT);
+  pinMode(STEP_PULSE_3, OUTPUT);
+
+  pinMode(STEP_DIR_1, OUTPUT);
+  pinMode(STEP_DIR_2, OUTPUT);
+  pinMode(STEP_DIR_3, OUTPUT);
+
+  pinMode(STEP_EN_1, OUTPUT);
+  pinMode(STEP_EN_2, OUTPUT);
+  pinMode(STEP_EN_3, OUTPUT);
+
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
+
+  Serial.println("Starting...");
+
+  mux.init();
+  init_steppers();
+  init_mode();
+}
+
+void setup() {
+  wait_serial();
+  leds.init();
+  wifi.init();
+}
 
 void benchmark() {
   static uint32_t iterations = 0;
@@ -173,7 +174,7 @@ void benchmark() {
 
   // NOTE: This will skew the measurement for the next iteration
   // Need extra work to keep accurate, but that's a pretty low priority
-  if(now - last_output < 1000)
+  if(now - last_output < 2000)
     return;
 
   Serial.printf("Benchmark: %f ms\n", avg);
@@ -184,7 +185,7 @@ void log_inputs() {
   static uint32_t last = 0;
   uint32_t now = millis();
 
-  if(now - last < 500)
+  if(now - last < 750)
     return;
 
   last = now;
@@ -197,14 +198,14 @@ void log_inputs() {
   Serial.println();
 }
 
-void loop() {
+void loop1() {
   blink();
+  // benchmark();
   mux.next();
-  benchmark();
   log_inputs();
 
   // Check if sensors triggered
-  uint32_t sens = mux.read_raw(SENS_IN_4);
+  uint32_t sens = mux.read_raw(SENS_IN_1);
 
   static uint32_t last = 0;
   uint32_t now = millis();
@@ -230,6 +231,7 @@ void loop() {
     steppers[i].run();
 }
 
-void loop1() {
+void loop() {
+  leds.step();
   wifi.run();
 }

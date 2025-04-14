@@ -1,8 +1,9 @@
 
 #include "common.h"
+#include "wifi.h"
 
-char ssid[] = "Mycelial";
-char pass[] = "Maybe a cult";
+char ssid[] = "741-g";
+char pass[] = "ilovekittens";
 
 WiFiMulti wf;
 
@@ -17,23 +18,31 @@ void Wifi::init() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
   retry_in = 0;
 }
 
 void Wifi::run() {
+  uint32_t now = millis();
+
 
   if (wf.run() != WL_CONNECTED) {
     uint32_t now = millis();
 
-    if(retry_in && retry_in < now)
+    if(retry_in && retry_in > now)
         return;
 
-    retry_in = now + 1000;
+    retry_in = now + 2000;
     Serial.println("Trying to connect to wifi");
     init();
+  }
+  else {  
+    if(now - last_log > 10000) {
+      Serial.printf("IP address: ");
+      Serial.println(WiFi.localIP());
+      last_log = now;
+
+      // XXX print last message and-or ping from hub
+    }
   }
 }
 

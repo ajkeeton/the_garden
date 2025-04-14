@@ -1,8 +1,10 @@
 #pragma once
 
 #include "common.h"
-#include "src/mux.h"
+#include "common/mux.h"
 #include "accel.h"
+
+#define STEP_LOG_DELAY 1000
 
 extern Mux_Read mux;
 
@@ -21,8 +23,8 @@ enum STEP_STATE {
   STEP_RELAX, // 90%'ish full open stretch
 };
 
-#define DEFAULT_MODE STEP_SWEEP
-#define DEFAULT_MODE_NEXT STEP_WIGGLE_START
+#define DEFAULT_MODE STEP_INIT
+#define DEFAULT_MODE_NEXT STEP_SWEEP
 
 #define STEPPER_OFF false
 #define STEPPER_ON true
@@ -72,7 +74,7 @@ public:
   */
 
   TRIGGER_STAT check_triggered(int pin, bool &trigger_state) {
-    int ls = !mux.read_switch(pin);
+    int ls = mux.read_switch(pin);
 
     if(trigger_state) {
       uint32_t now = millis();
@@ -139,7 +141,8 @@ public:
   int val_forward = HIGH,
       val_backward = LOW;
 
-  uint32_t last_close = 0;
+  uint32_t last_close = 0,
+           last_log = 0;
 
   step_settings_t settings_on_close,
                   settings_on_wiggle;

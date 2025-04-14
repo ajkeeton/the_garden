@@ -5,8 +5,14 @@ void Stepper::choose_next() {
 
   switch (state) {
     case STEP_INIT:
-      state_next = STEP_CLOSE;
+      if(DEFAULT_MODE_NEXT == STEP_SWEEP)
+        state_next = STEP_SWEEP;
+      else
+        state_next = STEP_CLOSE;
+
+      Serial.printf("%d: Initializing\n", idx);
       set_target(-INT_MAX);
+      accel.accel_0 = 0.00015;
       break;
 #if 0
     case STEP_FIND_ENDPOINT:
@@ -93,7 +99,6 @@ void Stepper::choose_next() {
       break;
     case STEP_SWEEP:
       choose_next_sweep();
-      Serial.printf("%d: Doing sweep\n", idx);
       break;
     default:
       break;
@@ -128,19 +133,19 @@ void Stepper::choose_next_wiggle(int32_t lower, int32_t upper) {
 }
 
 void Stepper::choose_next_sweep() {
-  //t_pulse_delay = pulse_delay_max;
   accel.set_pause_ms(1000);
 
   if (position == pos_end) {
     Serial.printf("%d: At end. Reversing\n", idx);
     set_target(-INT_MAX);
-    //delay(1000);
   } else {
     set_target(pos_end);
     Serial.printf("%d: At start, cooling off\n", idx);
     set_onoff(STEPPER_OFF);
-    //delay(1000);
   }
+
+  accel.accel_0 = 0.00002;
+  accel.delay_min = DELAY_MIN;
 }
 
 void Stepper::randomize_delay() {
@@ -216,24 +221,19 @@ void Stepper::set_target(int32_t tgt, const step_settings_t &ss) {
 }
 
 void Stepper::run() {
-  // uint32_t now = micros();
+  uint32_t now = millis();
 
-  //if(now < tlast + tpause)
-  //  return;
+  if(now - last_log > 1000) {
+    uint32_t us = micros();
+    Serial.printf("%d: Position: %ld, Target: %ld, State: %d, Fwd/Back: %d, Accel Delay: %ld, A0: %f, is ready: %d (%lu < %lu, %d)\n",
+      idx, position, pos_tgt == -INT_MAX ? -99999 : pos_tgt, 
+      state, forward, accel.delay_current, accel.accel_0, accel.is_ready(), 
+      us, accel.t_pause_for, us - accel.t_last_update < accel.delay_current);
+    last_log = now;
+  }
 
   if (!accel.is_ready())
     return;
-
-  //tlast = now;
-
-  //if(accel.t_move_started == 0)
-  //  accel.t_move_started = now;
-
-  //if(now < tlast + t_pulse_delay)
-  //  return;
-
-  //tpause = 0;
-  //tlast = now;
 
   set_onoff(STEPPER_ON);
 

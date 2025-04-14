@@ -38,7 +38,13 @@ int32_t Accel::next_plat() {
   count++;
 
   // total time lapsed since we started moving
-  float td = micros() - t_move_started;
+  uint32_t now = micros();
+  
+  // Integer overflow will happen here around 70 minutes
+  if(t_move_started > now)
+    t_move_started = now; // XXX gross hack that's technically wrong
+
+  float td = now - t_move_started;
 
   if(count == steps_to_target) {
     // We're at the midway point, use the time elapsed to determine time remaining

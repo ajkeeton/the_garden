@@ -14,7 +14,7 @@
 #define MUX2 18
 #define MUX1 17
 
-#define MUX_IN1 28
+#define MUX_IN1 A2
 
 class Mux_Read {
 public:
@@ -23,12 +23,13 @@ public:
   uint32_t last = micros(), 
            delay = 100; // microseconds to wait before next read
 
-  Mux_Read() {
+  Mux_Read() {    
     pinMode(MUX_EN, OUTPUT);
     pinMode(MUX4, OUTPUT);
     pinMode(MUX3, OUTPUT);
     pinMode(MUX2, OUTPUT);
     pinMode(MUX1, OUTPUT);
+    pinMode(MUX_IN1, INPUT);
 
     for(int i=0; i<16; i++)
       vals[i] = 0;
@@ -55,7 +56,7 @@ public:
 
   void next() {
     uint32_t now = micros();
-    if(now < last + delay)
+    if(now - last < delay)
       return;
     last = now;
 
@@ -71,7 +72,7 @@ public:
 
   bool read_switch(int pin) {
     next();
-    return vals[pin] > 512;
+    return vals[pin] > 128;
   }
 
   uint32_t read_raw(int pin) {
