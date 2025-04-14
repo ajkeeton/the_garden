@@ -7,7 +7,7 @@
 
 #define SENS_THOLD 400
 
-#define SHORT_RAILS
+//#define SHORT_RAILS
 #ifdef SHORT_RAILS
 #define DEFAULT_MAX_STEPS 6000
 #else
