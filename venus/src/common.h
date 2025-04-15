@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 //#define NO_LIMIT_SWITCH
-#define SENS_THOLD 400
+#define SENS_THOLD 300
 
-//#define SHORT_RAILS
+#define SHORT_RAILS
 #ifdef SHORT_RAILS
 #define DEFAULT_MAX_STEPS 6000
 #else
@@ -14,7 +14,7 @@
 #endif
 
 #define DELAY_MIN 80 // in MICRO seconds
-#define DELAY_MAX 10000 // in MICRO seconds
+#define DELAY_MAX 20000 // in MICRO seconds
 
 // Using a pair of PWM drivers to expand the number of usable outputs
 #if USING_PWM_DRIVER

@@ -32,24 +32,38 @@ void init_steppers() {
   step_settings_t ss;
 
   ss.pause_ms = 10;
-  ss.accel = 0.00015;
+  ss.accel = 0.0002;
   ss.min_delay = 80;
   steppers[0].settings_on_close = ss;
   
   ss.pause_ms = 10;
   steppers[1].settings_on_close = ss;
 
-  ss.accel = 0.00015;
-  ss.pause_ms = 400;
-  ss.min_delay = 150;
+  // Wait to close
+  ss.accel = 0.000025;
+  ss.pause_ms = 350;
+  ss.min_delay = 100;
   steppers[2].settings_on_close = ss;
+
+  // Open slower
+  ss.pause_ms = 250;
+  ss.min_delay = 150;
+  ss.accel = 0.000025;
+  steppers[0].settings_on_open = ss;
+  steppers[1].settings_on_close = ss;
+
+  // Open faster than the others
+  ss.pause_ms = 10;
+  ss.min_delay = 100;
+  ss.accel = 0.00015;
+  steppers[2].settings_on_open = ss;
 
   ss.accel = 0.000002;
   ss.pause_ms = 50;
-  ss.min_delay = 750; // scale down based on excitement
+  ss.min_delay = 750; // XXX scale down based on excitement
   ss.max_delay = 10000;
-  ss.min_pos = 0;
-  ss.max_pos = 2000; // scale up based on excitement
+  ss.min_pos = 200;
+  ss.max_pos = DEFAULT_MAX_STEPS * .3; // XXX scale up based on excitement
   steppers[0].settings_on_wiggle = ss;
   steppers[1].settings_on_wiggle = ss;
   steppers[2].settings_on_wiggle = ss;
@@ -110,9 +124,8 @@ void init_mode() {
   };
 
   for(int i=0; i<NUM_STEPPERS; i++) {
-    steppers[i].state_next = mode;
-    steppers[i].choose_next(); // necessary to initialize targets, speeds, etc
-    steppers[i].state_next = mode; //  DEFAULT_MODE_NEXT; // STEP_SWEEP; // STEP_WIGGLE_START;
+    steppers[i].choose_next(mode); // necessary to initialize targets, speeds, etc
+    // steppers[i].state_next = mode; //  DEFAULT_MODE_NEXT; // STEP_SWEEP; // STEP_WIGGLE_START;
   }
 }
 void wait_serial() {
@@ -202,9 +215,7 @@ void loop1() {
   blink();
   // benchmark();
   mux.next();
-  #ifdef DEBUG_STEP
   log_inputs();
-  #endif
 
   // Check if sensors triggered
   uint32_t sens = mux.read_raw(SENS_IN_1);

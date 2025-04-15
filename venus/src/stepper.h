@@ -10,7 +10,6 @@ extern Mux_Read mux;
 
 enum STEP_STATE {
   STEP_INIT,
-  //STEP_FIND_ENDPOINT,
   STEP_WIGGLE_START,
   STEP_WIGGLE_END,
   STEP_RANDOM_WALK,
@@ -21,6 +20,13 @@ enum STEP_STATE {
   STEP_GRAB,
   STEP_GRAB_WIGGLE,
   STEP_RELAX, // 90%'ish full open stretch
+  STEP_DETANGLE, // reverse a little to help with detangling
+};
+
+enum LOG_LEVEL {
+  LOG_ERROR,
+  LOG_INFO,
+  LOG_DEBUG,
 };
 
 #define DEFAULT_MODE STEP_INIT
@@ -130,6 +136,7 @@ public:
   bool forward = true,
        was_on = false;
   int step_pin_val = 0;
+  int how_wiggly = 0; // How much to wiggle when we grab
   
   STEP_STATE state = DEFAULT_MODE,
              state_next = DEFAULT_MODE_NEXT;
@@ -141,14 +148,15 @@ public:
   int val_forward = HIGH,
       val_backward = LOW;
 
-  uint32_t last_close = 0,
-           last_log = 0;
+  uint32_t last_log = 0;
 
   step_settings_t settings_on_close,
+                  settings_on_open,
                   settings_on_wiggle;
 
   Limit_State limits;
   Accel accel;
+  uint8_t debug_level = LOG_DEBUG;
 
   void init(int i, int en, int step, int dir, int lsl, 
             int dmin = DELAY_MIN, int dmax = DELAY_MAX) {
@@ -200,6 +208,7 @@ public:
   }
 
   void choose_next();
+  void choose_next(STEP_STATE next);
   void choose_next_sweep();
   void choose_next_rand_walk();
   void choose_next_wiggle();
@@ -210,4 +219,5 @@ public:
   void set_target(int32_t tgt, const step_settings_t &ss);
   void trigger_close();
   void run();
+  void dprintf(uint8_t level, const char *format, ...);
 };
