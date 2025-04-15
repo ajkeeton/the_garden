@@ -20,7 +20,8 @@ class Mux_Read {
 public:
   int vals[16];
   int idx = 0;
-  uint32_t last = micros(), 
+  uint32_t last = micros(),
+          // XXX try a shorter delay. Not sure when things get unstable
            delay = 100; // microseconds to wait before next read
 
   Mux_Read() {    

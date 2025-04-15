@@ -1,5 +1,6 @@
 #include "common.h"
 #include "wifi.h"
+#include "proto.h"
 #include <LEAmDNS.h> // Include the LEAmDNS library
 #include <WiFiClient.h> // Include WiFiClient for TCP communication
 
@@ -22,7 +23,7 @@ void Wifi::init() {
   Serial.println(WiFi.localIP());
 
   // Initialize mDNS
-  if (!mdns.begin("venus")) { // Start mDNS responder with the device's IP
+  if (!mdns.begin("venus")) { 
     Serial.println("Error starting mDNS");
     return;
   }
@@ -44,7 +45,7 @@ bool Wifi::discover_server() {
   garden_server = mdns.IP(0);
   port = mdns.port(0);
 
-  Serial.printf("GardenServer: %s:%u\n", garden_server.toString().c_str(), port);
+  Serial.printf("Found Garden server: %s:%u\n", garden_server.toString().c_str(), port);
 
   return true;
 }
@@ -54,20 +55,19 @@ bool Wifi::send_msg(uint16_t type, uint16_t len, char *payload) {
     if(!discover_server())
       return false;
 
-    Serial.println("Connecting to GardenServer...");
+    Serial.println("Connecting to Garden server...");
     if(!client.connect(garden_server, port)) {
-      Serial.println("Failed to connect to GardenServer");
+      Serial.println("Failed to connect to Garden server");
       return false;
     }
   }
 
   // Format the message
   uint8_t message[6 + len];
-  int version = 1;
   message[0] = (type >> 8) & 0xFF;
   message[1] = type & 0xFF;
-  message[2] = (version >> 8) & 0xFF;
-  message[3] = version & 0xFF;
+  message[2] = (PROTO_VERSION >> 8) & 0xFF;
+  message[3] = PROTO_VERSION & 0xFF;
   message[4] = (len >> 8) & 0xFF;
   message[5] = len & 0xFF;
   memcpy(&message[6], payload, len);
@@ -115,12 +115,13 @@ bool Wifi::read_msg() {
   uint16_t length = (header[4] << 8) | header[5];
 
   switch(type) {
-    case 1:
-      Serial.println("Received echo");
+    case PROTO_PING:
+      Serial.println("Received ping");
       break;
-    case 4:
+    case PROTO_STATE_UP:
       Serial.println("Received state update");
       break;
+    // The above are the only messages we should ever receive
     default:
       Serial.printf("Received unknown message type: %d (%x)\n", type, type);
       client.stop();
@@ -158,12 +159,15 @@ void Wifi::run() {
     retry_in = now + 2000;
     Serial.println("Trying to connect to wifi");
     init();
-  } else {
-    if (now - last_log > 5000) {
-      Serial.printf("Our IP: ");
-      Serial.println(WiFi.localIP());
-      last_log = now;
+    return;
+  } 
+  
+  if (now - last_log > 5000) {
+    last_log = now;
+    //Serial.printf("Our IP: ");
+    //Serial.println(WiFi.localIP());
 
+    if(client.connected()) {
       send_msg(1, "Echo?!");
       send_msg(2, "Log!");
       send_sensor_msg(3, 0, 10);
