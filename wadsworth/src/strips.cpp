@@ -67,7 +67,7 @@ void strip_t::init(CRGB *l, uint16_t nleds, bool is_ctr) {
 }
 
 // Each strip should "know" which sensors it needs to query and there LED offset
-void strip_t::add_input(mux_input_t *mux, uint8_t mx_pin, uint16_t led) {
+void strip_t::add_input(Mux_Read *mux, uint8_t mx_pin, uint16_t led) {
   tracers_sens[nsens].init(layer_tracers, num_leds, led);
   sensors[nsens++].init(mux, mx_pin, led);
   mstate.num_sens++;

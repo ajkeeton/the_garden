@@ -520,5 +520,4 @@ const TProgmemRGBGradientPaletteRef GradientPalettes[] = {
 const uint8_t GradientPaletteCount =
   sizeof( GradientPalettes) / sizeof( TProgmemRGBGradientPaletteRef );
 
-
 #endif

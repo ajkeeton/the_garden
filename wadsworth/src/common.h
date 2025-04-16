@@ -4,6 +4,8 @@
 #include <semphr.h>
 #include <FastLED.h>
 #include <map>
+#include "common/common.h"
+#include "common/mux.h"
 #include "patterns.h"
 
 //#define FIND_SENS 1
@@ -33,15 +35,6 @@
 #define LED_PIN7    9
 #define LED_PIN8    8
 
-#define MUX_EN 22
-#define MUX4 20
-#define MUX3 19
-#define MUX2 18
-#define MUX1 17
-
-#define MUX_IN1 28
-#define MUX_IN2 27
-
 //#define MODE2 6
 
 #define NUM_LEDS1   2*144 
@@ -63,10 +56,7 @@
 // For convenience with the state tracking
 #define MAX_STRIPS 16
 #define MAX_STRIP_LENGTH 4*144
-#define MAX_MUX_IN 10
-
-//#define ADDR_SELECT A0
-//#define I2C_ADDR 8
+#define MAX_MUX_IN 16
 
 #define N_SAMPLES 4
 struct ir_input_t {
@@ -76,16 +66,6 @@ struct ir_input_t {
 
   ir_input_t();
   void update(uint16_t v);
-};
-
-struct mux_input_t {
-  int num_pins = MAX_MUX_IN;
-  ir_input_t in[MAX_MUX_IN];
-  uint16_t pin = MUX_IN1;
-
-  void update();
-  void init(uint16_t p);
-  uint16_t get(uint16_t idx);
 };
 
 struct log_throttle_t {
@@ -128,13 +108,13 @@ struct sensor_t {
   uint32_t start = 0; // Start of last triggered state
   uint16_t score = 0; // score > 0 when triggered
   int mux_pin = 0; 
-  mux_input_t *mux = NULL;
+  Mux_Read *mux = NULL;
   log_throttle_t log;
   min_max_range_t minmax;
 
   bool pending_pulse = false;
 
-  void init(mux_input_t *m, int mpin, uint16_t l) {
+  void init(Mux_Read *m, int mpin, uint16_t l) {
     mux = m;
     mux_pin = mpin;
     start = 0;
@@ -182,7 +162,7 @@ struct strip_t {
   void init(CRGB *l, uint16_t nleds, bool is_ctr=false);
 
   // Each strip needs to know which sensors to query and there LED offset
-  void add_input(mux_input_t *mux, uint8_t mx_pin, uint16_t led);
+  void add_input(Mux_Read *mux, uint8_t mx_pin, uint16_t led);
 
   ~strip_t() {
     // So not necessary but hurts to omit...
@@ -253,7 +233,7 @@ struct meta_state_t {
   uint16_t score = 0;
   uint16_t num_sens = 0,
            total = 0;
-  mux_input_t *mux = NULL;
+  Mux_Read *mux = NULL;
   state_t pulse, 
           low_power, 
           active;
@@ -263,7 +243,7 @@ struct meta_state_t {
   uint32_t t_pulse = 0;
   int pattern = 0;
 
-  void init(mux_input_t *m) {
+  void init(Mux_Read *m) {
     mux = m;
     last_active = millis();
 

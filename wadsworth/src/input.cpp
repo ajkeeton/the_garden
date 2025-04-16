@@ -75,34 +75,6 @@ void min_max_range_t::update(uint16_t val) {
   decay();
 }
 
-void mux_input_t::init(uint16_t p) {
-  pin = MUX_IN1;
-}
-
-uint16_t mux_input_t::get(uint16_t idx) {
-  xSemaphoreTake(muxmtx, portMAX_DELAY);
-  uint16_t ret = in[idx].val;
-  xSemaphoreGive(muxmtx);
-  return ret;
-}
-
-void mux_input_t::update() {
-  for(int i=0; i<MAX_MUX_IN; i++) {
-    digitalWrite(MUX_EN, 1);
-    digitalWrite(MUX1, i & 1);
-    digitalWrite(MUX2, i & 2);
-    digitalWrite(MUX3, i & 4);
-    digitalWrite(MUX4, i & 8);
-    digitalWrite(MUX_EN, 0);
-    delay(1); // Seems to be necessary to let the value "settle" when switching the mux
-    uint16_t val = analogRead(pin);
-
-    xSemaphoreTake(muxmtx, portMAX_DELAY);
-    in[i].update(val);
-    xSemaphoreGive(muxmtx);
-  }
-}
-
 ir_input_t::ir_input_t() {
   for(int i=0; i<N_SAMPLES; i++)
     samples[i] = 0;
@@ -126,7 +98,7 @@ uint16_t decay(uint16_t score) {
 }
 
 void sensor_t::update(uint32_t now) {
-  uint16_t raw = mux->get(mux_pin);
+  uint16_t raw = mux->read_raw(mux_pin);
 
   minmax.update(raw);
 
