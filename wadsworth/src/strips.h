@@ -170,9 +170,11 @@ struct strip_t {
 
     waves_t waves;
     wave_pulse_t wave_pulse;
+    
+    //tracer_t tracers_sens[MAX_MUX_IN+1]; // Tracers for each sensor, plus one for the central pire
+    //uint8_t *tracers_sens_map = NULL; // Maps each LED to a tracer index
+    tracer_v2_t tracer_sens; // XXX only allowing one/strip for now, when the timing is right, it might be fine
 
-    tracer_t tracers_sens[MAX_MUX_IN+1];
-    uint16_t n_tracers = 0;
     tracer_t tracers_rand[MAX_RIPPLES_RAND];
     uint16_t n_rand_tracers = MAX_RIPPLES_RAND;
 
@@ -192,7 +194,7 @@ struct strip_t {
 
     void step(uint32_t global_activity);
     CRGB trig_target_color();
-    void on_trigger(uint16_t led, uint16_t score, uint32_t duration);
+    bool on_trigger(uint16_t led, uint16_t score, uint32_t duration);
     void background_update(uint16_t global_activity);
     void find_mids();
     bool near_mids(int i);
@@ -209,13 +211,14 @@ struct strip_t {
 
     void log_info() {
         int ttracers = 0;
-        for(int i=0; i<n_tracers; i++)
-            ttracers += tracers_sens[i].exist;
+        //for(int i=0; i<sizeof(tracers_sens)/sizeof(tracer_t); i++)
+        //    ttracers += tracers_sens[i].exist;
+            
         for(int i=0; i<n_rand_tracers; i++)
             ttracers += tracers_rand[i].exist;
 
-        Serial.printf("Strip %d, pattern %d, tracers %d/%d\n", 
-            id, pattern, ttracers, n_tracers+n_rand_tracers);
+        Serial.printf("Strip %d, pattern %d, tracers %d\n", 
+            id, pattern, ttracers);
     }
   };
   

@@ -28,10 +28,11 @@
 class mux_t {
 public:
   int vals[16];
+  int num_inputs = 16; // Number of inputs on the mux
   int idx = 0;
   uint32_t last = micros(),
-          // XXX try a shorter delay. Not sure when things get unstable
-           delay = 100; // microseconds to wait before next read
+           #warning try a shorter delay. Not sure when things get unstable
+           delay = 100; // microseconds to settle before next analogRead
 
   mux_t() {    
     pinMode(MUX_EN, OUTPUT);
@@ -74,11 +75,12 @@ public:
 
     vals[idx] = analogRead(MUX_IN1);
 
-    //Serial.printf("Mux %d: %d\n", idx, vals[idx]);
-    idx++;
-    if(idx > 15)
+    // Serial.printf("Mux %d: %d\n", idx, vals[idx]);
+    
+    if(++idx >= num_inputs)
       idx = 0;
 
+    // Change address for next read
     set_address(idx);
   }
 
@@ -89,5 +91,16 @@ public:
 
   uint32_t read_raw(int pin) {
     return vals[pin];
+  }
+
+  void log_info() {
+    Serial.print("Mux: ");
+    for (int i = 0; i < num_inputs; i++) {
+      Serial.printf("%3d", vals[i]);
+      if (i < num_inputs-1) {
+        Serial.print(" | ");
+      }
+    }
+    Serial.println();
   }
 };

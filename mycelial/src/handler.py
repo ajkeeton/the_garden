@@ -1,3 +1,5 @@
+from proto import *
+
 class ProtocolHandler:
     def __init__(self, connection):
         self.connection = connection
@@ -30,12 +32,16 @@ class ProtocolHandler:
 
     def process_message(self, msg_type, version, payload):
         # Handle ping messages (type 1)
-        if msg_type == 1:
+        if msg_type == PROTO_PING:
             self.handle_ping(payload)
-        elif msg_type == 2:
+        elif msg_type == PROTO_LOG:
             self.handle_log(payload)
-        elif msg_type == 3:
+        elif msg_type == PROTO_SENSOR:
             self.handle_sensor(payload)
+        elif msg_type == PROTO_STATE_UPDATE:
+            print(f"Handling state update message with payload: {payload}")
+        elif msg_type == PROTO_PULSE:
+            print(f"Handling pulse message with payload: {payload}")
         else:
             # Placeholder for other message types
             print(f"Received message - Type: {msg_type}, Version: {version}, Payload: {payload}")

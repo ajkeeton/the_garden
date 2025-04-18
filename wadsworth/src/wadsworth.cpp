@@ -20,7 +20,10 @@ void wad_t::init() {
     // - What to call when a sensor triggers
     int num_sensors = 5;
 
-    sensors.init(0, num_sensors, ::on_trigger);
+    sensors.init(0, num_sensors, 
+            ::on_sens_trigger_start,
+            ::on_sens_trigger_cont, 
+            ::on_sens_trigger_off);
 
     sensors.add(0, 0, 140); // strip 0, sensor 0, mux pin 0, LED 140
     sensors.add(1, 0, 90); // strip 0, sensor 1, mux pin 2, LED 90
@@ -60,82 +63,13 @@ void wad_t::init() {
     }
 }
 
-void wad_t::next() {
+void wad_t::strips_next() {
     //for(int i=0; i<num_strips(); i++) {
     strips[0].step(state.score);
     //    strips[i].step();
     // }
 
     FastLED.show();
-    FastLED.delay(1);
-
-    #if 0
-    uint16_t total_triggered = 0;
-    uint32_t total_score = 0;
-
-    for(int i=0; i<num_inputs; i++) {
-        uint16_t raw = mux.read_raw(i);
-
-        // Currently using the button to pretend we're triggered
-        // And ignoring updates for anything but the first strip
-        if(trigger_override && !i) {
-            // Act as though first sensor is triggered
-            raw = inputs[i].score.minmax.avg_max*1.5;
-        }
-        if(i)
-            break;
-
-        const score_t &score = inputs[i].update(i, raw);
-
-        uint8_t strip_idx = inputs[i].strip;
-        uint16_t led_idx = inputs[i].led;
-        uint16_t sens_idx = inputs[i].sensor;
-
-        strips[strip_idx].set_score(led_idx, sens_idx, score);
-
-        if(score.value) {
-            total_triggered++;
-            total_score += score.value;
-        }
-    }
-
-    EVERY_N_MILLISECONDS(1000) {
-        Serial.print("Inputs: ");
-
-        for(int i=0; i<num_inputs; i++) {
-            Serial.printf("%3u\t| ", mux.read_raw(i));
-        }
-
-        Serial.print("\nScores: ");
-
-        for(int i=0; i<num_inputs; i++) {
-            Serial.printf("%3u & %u\t| ", inputs[i].score.value, inputs[i].score.duration);
-        }
-
-        Serial.println();
-
-        inputs[0].score.minmax.debug();
-    }
-
-    // XXX
-    // XXX currently ignoring total_score
-    mstate.update(total_triggered, total_score);
-
-return;
-
-    uint16_t activity = (mstate.active.avg * 100) / mstate.active.max_score;
-    // Ideally this would run periodically on the other core,
-    // but only if wifi can be made non-blocking
-    EVERY_N_MILLISECONDS(5) {
-        for(int i=0; i<num_strips(); i++) {
-            strips[i].update(activity);
-        }
-    }
-
-    strips[0].step();
-    for(int i=0; i<num_strips(); i++) {
-        //strips[i].step();
-    }
 
   #if 0 
   mstate.update();
@@ -165,9 +99,5 @@ return;
   for(int i=0; i<num_strips(); i++) {
     strips[i].step();
   }
-  #endif
-
-  FastLED.show();
-  FastLED.delay(1);
   #endif
 }

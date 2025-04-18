@@ -1,8 +1,6 @@
 #include "common.h"
 #include "wadsworth.h"
 
-extern SemaphoreHandle_t muxmtx;
-
 uint32_t min_max_range_t::get_max() const {
   return avg_max;
 }

@@ -40,25 +40,42 @@ void strip_t::init(CRGB *l, uint16_t nleds, bool is_ctr) {
   blob_asc.init(layer_waves.targets, nleds);
   white.init(transition.targets, nleds);
 
-  for(int i=0; i<n_tracers; i++) {
-    tracers_sens[i].init(layer_tracers.targets, nleds, 0);
+  /*
+  if(tracers_sens_map) {
+    // If tracers_sens_map is already allocated, delete it
+    delete []tracers_sens_map;
   }
+  tracers_sens_map = new uint8_t[num_leds];
+  for(int i=0; i<num_leds; i++) {
+    tracers_sens_map[i] = 0; // Point all LEDs to the first sensor tracer for now
+  }
+  */
 
+  tracer_sens.init(layer_tracers.targets, nleds, 0);
+
+  #if 0
+  if(tracers_sens)
+    delete []tracers_sens;
+  tracers_sens = new tracer_t[num_leds];
+  for(int i=0; i<num_leds; i++) {
+    // XXX Technically only need one of these for each sensor, at the respective LED, 
+    // but doing it this way for now
+    tracers_sens[i].init(layer_tracers.targets, nleds, i);
+  }
+  #endif
   for(int i=0; i<n_rand_tracers; i++) {
     tracers_rand[i].init(layer_tracers.targets, nleds, 0);
   }
 }
 
-void strip_t::on_trigger(uint16_t led, uint16_t score, uint32_t duration) {
+bool strip_t::on_trigger(uint16_t led, uint16_t percent, uint32_t duration) {
   // Trigger a steady glow and a pulse at the sensor
-#warning ADD PULSE BY DURATION
-
-  uint16_t spread = map(score, 0, 100, 0, 20);//num_leds/10);
+  uint16_t spread = map(percent, 0, 100, 0, 60);//num_leds/10);
 
   for(int i=0; i<spread; i++) {
     int j = led - i;
     int k = led + i;
-    uint8_t brightness = 255 - map(i, 0, spread, 0, 100);
+    uint8_t brightness = 255 - map(i, 0, spread, 0, 255);
 
     if(j >= 0) {
       CRGB color = rainbow.get(j, brightness);
@@ -71,6 +88,11 @@ void strip_t::on_trigger(uint16_t led, uint16_t score, uint32_t duration) {
   }
 
   layer_glow.blur(160);
+
+  // Return value determines if we're going to signal the garden
+  return tracer_sens.trigger(led, percent, duration);
+  //uint8_t tidx = tracers_sens_map[led];
+  //tracers_sens[tidx].trigger(percent, duration);
 }
 
 void strip_t::step(uint32_t global_ac) {
@@ -103,22 +125,12 @@ void strip_t::step(uint32_t global_ac) {
 }
 
 void strip_t::background_update(uint16_t global_activity) {
-
-#warning ACTIVITY IS TREWATED AS A PERCENTAGE BELOW. Global score needs to be appropiately scaled. Another minmax?
-
   // XXX Future: Only update when in a state a pattern that might use it
   rainbow.update();
 
-  switch(pattern) {
-      case 2:
-      //if(is_center) 
-        //waves.step(beatsin8(30, 15, 200), 10, my_activity);
-        blob_asc.step(global_activity);
-      //else // since not doing blobs, need to fade out any leftovers
-      //  fadeToBlackBy(layer_waves, num_leds, 10); 
+  tracer_sens.step();
 
-      do_basic_ripples(global_activity);
-      break;
+  switch(pattern) {
     case 0:
       //if(is_center)
         blobs.step(global_activity);
@@ -139,6 +151,15 @@ void strip_t::background_update(uint16_t global_activity) {
         do_high_energy_ripples(global_activity);
       }
       break;
+    case 2:
+      //if(is_center) 
+        //waves.step(beatsin8(30, 15, 200), 10, my_activity);
+        blob_asc.step(global_activity);
+      //else // since not doing blobs, need to fade out any leftovers
+      //  fadeToBlackBy(layer_waves, num_leds, 10); 
+
+      do_basic_ripples(global_activity);
+      break;
     //  rainbow? 
     //  black ripples
     default:
@@ -158,10 +179,6 @@ return false;
 }
 
 void strip_t::do_basic_ripples(uint16_t activity) {
-  // Serial.printf("do_basic_ripples %d\n", activity);
-  for(int i=0; i<n_tracers; i++)
-    tracers_sens[i].step(activity);
-
   for(int i=0; i<n_rand_tracers; i++)
     tracers_rand[i].step(activity);
 
@@ -173,10 +190,6 @@ void strip_t::do_basic_ripples(uint16_t activity) {
 }
 
 void strip_t::do_high_energy_ripples(uint16_t activity) {
-
-  for(int i=0; i<n_tracers; i++)
-    tracers_sens[i].step(activity);
-    
   for(int i=0; i<n_rand_tracers; i++)
     tracers_rand[i].step(activity);
 

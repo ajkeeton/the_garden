@@ -1,4 +1,7 @@
 #pragma once
+
+#define WADS_V2A_BOARD
+
 #include <FreeRTOS.h>
 #include <task.h>
 #include <semphr.h>

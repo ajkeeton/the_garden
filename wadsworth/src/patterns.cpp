@@ -1,5 +1,8 @@
 #include "common.h"
 #include "gradient_palettes.h"
+#include "common/wifi.h"
+
+extern wifi_t wifi;
 
 // Also, try ForestColors_p and HeatColors_p: https://fastled.io/docs/group___predefined_palettes.html
 DEFINE_GRADIENT_PALETTE( remixed_Fuschia_7_gp ) {
@@ -149,6 +152,55 @@ void waves_t::step(uint8_t brightness, uint16_t delay, uint16_t wave_mult) {
     b = map(b, 0, 255, 30, 200);
     leds[i] = ColorFromPalette(palette_wave, i+wave_offset, b, LINEARBLEND);
   }
+}
+
+void tracer_v2_t::step() {
+  if(!exist)
+    return;
+
+  uint32_t now = millis();
+  // Serial.printf("tracer move? %lu now - last_update: %lu < %lu\n", pos, now - t_last_update, t_update_delay);
+
+  if(now - t_last_update < t_update_delay)
+    return;
+
+  t_last_update = now;
+
+  // We're finished when !pos && pos+1 has faded to black
+  // The reason for pos+1 is in case we change the LED index before updating
+  // the color. This reeeeeally shoulnd't happen, but just in case...
+  if(!pos && leds[1] == CRGB::Black) {
+    // Tell the gardener that we're done so it can forward the pulse to the others
+    wifi.send_pulse(
+      color,
+      fade,
+      spread,
+      t_update_delay);
+
+    exist = false;
+    return;
+  }
+
+  if(pos < spread)
+    spread = pos;
+
+  for(int i=0; i < spread; i++) {
+    int pi = pos+i;
+    if(pi >= num_leds)
+      break;
+
+    if(leds[pi] == CRGB::Black)
+      leds[pi] = CRGB::White;
+    else
+      leds[pi] = nblend(leds[pi], CRGB::White, 125);
+  }
+
+  //brightness = scale8(brightness, fade);
+  fadeToBlackBy(leds, num_leds, fade);
+  //Serial.printf("tracer at %lu, %u\n", pos, leds[pos].getLuma());
+
+  if(pos > 0)
+    pos--;
 }
 
 void wave_pulse_t::step(uint16_t activity) {

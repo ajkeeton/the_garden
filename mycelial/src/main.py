@@ -63,8 +63,14 @@ def handle_client(csock, addr, garden):
 
 def advertise_service(port):
     zeroconf = Zeroconf()
-    local_ip = socket.gethostbyname(socket.gethostname())
-    print(local_ip)
+
+    # Get the actual local IP address (make sure it doesn't return localhost)
+    # I think this works even when we can't access 8.8.8.8
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect(("8.8.8.8", 80))  # Connect to a public IP to determine the local IP
+        local_ip = s.getsockname()[0]
+
+    print(f"Advertising service on IP: {local_ip}")
     service_info = ServiceInfo(
         "_garden._tcp.local.",
         "GardenServer._garden._tcp.local.",

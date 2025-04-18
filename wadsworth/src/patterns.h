@@ -33,6 +33,78 @@ struct rainbow_t {
   void update();
 };
 
+#define MAX_SCORE_DURATION 10000
+struct tracer_v2_t {
+  CRGB *leds = NULL;
+  uint8_t brightness = DEF_RIPPLE_BRIGHTNESS;
+  uint8_t color = 0;
+  uint16_t init_pos = 0, 
+           num_leds = 0;
+  int16_t pos = 0,
+          spread = 0;
+
+  // int8_t velocity = 0;
+  uint8_t // life = 0,
+          // max_life = 0,
+          fade = 0;
+
+  bool exist = false;
+  uint32_t t_last_update = 0,
+           t_last_trigger = 0,
+           t_update_delay;
+  
+  void init(CRGB *l, uint16_t nleds, uint16_t pos) {
+    leds = l;
+    num_leds = nleds;
+    init_pos = pos;
+  }
+
+  bool trigger(uint16_t lidx, uint32_t score, uint32_t score_duration) {
+    if(exist)
+      // let the last one finish first
+      return false;
+
+    uint32_t now = millis();
+    // The delay is based on the duration. Longer duration, shorter delay
+    if(score_duration > MAX_SCORE_DURATION)
+      score_duration = MAX_SCORE_DURATION; // cap it at 10 seconds
+    //t_update_delay = map(score_duration, 0, 10000, 2000, 500);
+
+    //if(now - t_last_trigger < t_update_delay)
+    //  return;
+
+    t_last_trigger = now;
+
+    color = CRGB::White; // millis() & 255; // random8() & 255;
+
+    pos = init_pos = lidx;
+
+    // score determines the fade
+    // at 100%, fade is low
+    if(score > 100) score = 100;
+    fade = map(0, 100, 100, 2, score);
+
+    // calc a blur based on score?
+
+    if(score > 100)
+      score = 100;
+
+    // recalc the update delay to be per frame
+    // t_update_delay = map(score, 0, 100, 40, 2);
+    t_update_delay = map(score_duration, 0, MAX_SCORE_DURATION, 25, 2);
+    spread =  map(score_duration, 0, MAX_SCORE_DURATION, 2, 15);
+    t_last_update = 0;
+
+    exist = true;
+
+    Serial.printf("Tracer starting using score %lu\n", score);
+
+    return true;
+  }
+
+  void step();
+};
+
 struct tracer_t {
   CRGB *leds = NULL;
   uint32_t last = 0;
