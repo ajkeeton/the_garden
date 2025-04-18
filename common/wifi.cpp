@@ -11,7 +11,12 @@ WiFiMulti wf;
 MDNSResponder mdns; // Create an instance of the LEAmDNS responder
 WiFiClient client;  // Create a WiFiClient for TCP communication
 
-void Wifi::init() {
+void wifi_t::init(const char *n) {
+  strcpy(name, n);
+  init();
+}
+
+void wifi_t::init() {
   wf.addAP(ssid, pass); 
 
   if (wf.run() != WL_CONNECTED) 
@@ -23,7 +28,7 @@ void Wifi::init() {
   Serial.println(WiFi.localIP());
 
   // Initialize mDNS
-  if (!mdns.begin("venus")) { 
+  if (!mdns.begin(name)) { 
     Serial.println("Error starting mDNS");
     return;
   }
@@ -33,7 +38,7 @@ void Wifi::init() {
   retry_in = 0;
 }
 
-bool Wifi::discover_server() {
+bool wifi_t::discover_server() {
   // Use mDNS to discover GardenServer._garden._tcp.local
   if(!mdns.queryService("_garden", "_tcp")) {
     Serial.println("No GardenServer found");
@@ -50,7 +55,7 @@ bool Wifi::discover_server() {
   return true;
 }
 
-bool Wifi::send_msg(uint16_t type, uint16_t len, char *payload) {
+bool wifi_t::send_msg(uint16_t type, uint16_t len, char *payload) {
   if(!client.connected()) {
     if(!discover_server())
       return false;
@@ -83,17 +88,17 @@ bool Wifi::send_msg(uint16_t type, uint16_t len, char *payload) {
   return true;
 }
 
-bool Wifi::send_msg(uint16_t type, const String &payload) {
+bool wifi_t::send_msg(uint16_t type, const String &payload) {
   return send_msg(type, payload.length(), (char*)payload.c_str());
 }
 
-bool Wifi::send_sensor_msg(uint16_t type, uint16_t index, uint16_t value) {
+bool wifi_t::send_sensor_msg(uint16_t type, uint16_t index, uint16_t value) {
   char payload[32];
   snprintf(payload, sizeof(payload), "%u,%u", index, value);
   return send_msg(type, strlen(payload), payload);
 }
 
-bool Wifi::read_msg() {
+bool wifi_t::read_msg() {
   if(!client.connected()) {
     Serial.println("Client not connected, cannot read messages.");
     return false;
@@ -149,7 +154,7 @@ bool Wifi::read_msg() {
   return true;
 }
 
-void Wifi::run() {
+void wifi_t::run() {
   uint32_t now = millis();
 
   if (wf.run() != WL_CONNECTED) {

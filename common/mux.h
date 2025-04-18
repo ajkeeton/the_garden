@@ -8,15 +8,24 @@
 // THUS:
 //  In order for this wrapper to work you have to continuously call next()
 
+#ifdef WADS_V2A_BOARD
+#define MUX_IN1 A0
+#define MUX_EN 18
+#define MUX4 22
+#define MUX3 21
+#define MUX2 20
+#define MUX1 19
+#else
+#define MUX_IN1 A2
 #define MUX_EN 22
 #define MUX4 20
 #define MUX3 19
 #define MUX2 18
 #define MUX1 17
 
-#define MUX_IN1 A2
+#endif
 
-class Mux_Read {
+class mux_t {
 public:
   int vals[16];
   int idx = 0;
@@ -24,7 +33,7 @@ public:
           // XXX try a shorter delay. Not sure when things get unstable
            delay = 100; // microseconds to wait before next read
 
-  Mux_Read() {    
+  mux_t() {    
     pinMode(MUX_EN, OUTPUT);
     pinMode(MUX4, OUTPUT);
     pinMode(MUX3, OUTPUT);
@@ -36,6 +45,8 @@ public:
       vals[i] = 0;
 
     set_address(0);
+
+    init();
   }
 
   void init() {

@@ -2,14 +2,19 @@
 #include <WiFi.h>
 #include <WiFiMulti.h>
 
-class Wifi {
+class wifi_t {
 public:
     int status = WL_IDLE_STATUS;
     uint32_t retry_in = 0,
              last_log = 0;
     IPAddress garden_server;
     uint16_t port = 0;
+    char name[128]; // client name for mDNS
 
+    wifi_t() {
+        strncpy(name, "[unset]", sizeof(name));
+    }
+    void init(const char *name);
     void init();
     void run();
     bool discover_server();

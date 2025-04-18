@@ -166,7 +166,7 @@ void setup1() {
 void setup() {
   wait_serial();
   leds.init();
-  wifi.init();
+  wifi.init("venus");
 }
 
 void benchmark() {

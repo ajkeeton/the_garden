@@ -14,7 +14,7 @@ CRGBPalette16 palette_ripple_target = Coral_reef_gp; // OceanColors_p;
 CRGBPalette16 palette_ripple = Coral_reef_gp;
 CRGBPalette16 palette_asc_blob = remixed_Fuschia_7_gp;
 
-extern meta_state_t mstate;
+//extern meta_state_t mstate;
 
 void setup_ripples_palette() {
   return;
@@ -264,7 +264,7 @@ void climb_white_t::step(uint16_t activity) {
   last = now;
   activity = activity/10+1;
 
-  if(activity < 5 || mstate.total < MIN_TRIG_FOR_STATE_CHANGE) {
+  if(activity < 5) { // XXX || mstate.total < MIN_TRIG_FOR_STATE_CHANGE) {
     fadeToBlackBy(leds, num_leds, 5);
     if(pos > 0)
       pos--;

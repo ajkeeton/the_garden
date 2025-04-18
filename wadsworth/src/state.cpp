@@ -1,6 +1,8 @@
 #include "common.h"
+#include "wadsworth.h"
+#include "state.h"
 
-bool state_t::can_trigger() {
+bool pattern_state_t::can_trigger() {
   return true;
 #if 0
   uint32_t now = millis();
@@ -10,7 +12,7 @@ bool state_t::can_trigger() {
 #endif
 }
 
-bool state_t::is_triggered() {
+bool pattern_state_t::is_triggered() {
   bool was_active = active;
 
   if(!resting() && score > thold_act && !need_retrigger) {
@@ -46,7 +48,7 @@ bool state_t::is_triggered() {
   return active;
 }
 
-bool state_t::resting() {
+bool pattern_state_t::resting() {
   if(active || !rest)
     return false;
 
@@ -59,7 +61,7 @@ bool state_t::resting() {
   return false;
 }
 
-void state_t::update_avg() {
+void pattern_state_t::update_avg() {
   avg = avg*(n_samples-1) + score;
   n_samples++;
   if(n_samples > N_STATE_SAMPLES)
@@ -67,7 +69,7 @@ void state_t::update_avg() {
   avg /= n_samples;
 }
 
-void state_t::trigger() {
+void pattern_state_t::trigger() {
   if(!max_score && score >= thold_act*2)
     return;
 
@@ -81,22 +83,30 @@ void state_t::trigger() {
   update_avg();
 }
 
-void state_t::untrigger() {
+void pattern_state_t::untrigger() {
   if(score > 0)
     score--;
 
   update_avg();
 }
 
-void meta_state_t::update() {
+#if 0
+uint16_t meta_state_t::pulse_thold() {
+  // Should be set based on number of sensors, and change according to commands
+  // from the garden server
+  // XXX
+  return 1;
+}
+
+void meta_state_t::update(uint16_t ntrig, uint32_t total_score) {
   uint32_t now = millis();
-  if(total) {
+  if(ntrig) {
     last_active = now;
     active.trigger();
 
     // If all are active, we're either by a poofer or in the sun - start phasing out until fewer are triggered
-    //if(total >= num_sens * 0.9) {
-    if(total >= 2) {
+    //if(total >= ceil(num_sens * 0.9)) {
+    if(ntrig >= pulse_thold()) {
       //low_power.trigger();
       //white.trigger();
       pulse.trigger();
@@ -107,3 +117,4 @@ void meta_state_t::update() {
     active.untrigger();
   }
 }
+#endif
