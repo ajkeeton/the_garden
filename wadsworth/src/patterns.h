@@ -91,8 +91,8 @@ struct tracer_v2_t {
 
     // recalc the update delay to be per frame
     // t_update_delay = map(score, 0, 100, 40, 2);
-    t_update_delay = map(score_duration, 0, MAX_SCORE_DURATION, 25, 2);
-    spread =  map(score_duration, 0, MAX_SCORE_DURATION, 2, 15);
+    t_update_delay = 5; // map(score_duration, 0, MAX_SCORE_DURATION, 20, 1);
+    spread =  map(score_duration, 0, MAX_SCORE_DURATION, 5, 30);
     t_last_update = 0;
 
     exist = true;

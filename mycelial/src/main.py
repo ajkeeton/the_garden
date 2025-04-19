@@ -48,11 +48,23 @@ class Garden:
             print("Broadcasting ping message to all clients...")
             self.broadcast(message)
 
+    def handle_ident(self, connection, payload):
+        # Process the IDENT message payload
+        print(f"Garden received IDENT message from {connection.getpeername()} with payload: {payload}")
+        # Add logic to handle the IDENT message (e.g., register the client)
+
+
+    def handle_pulse(self, connection, payload):
+        # Process the IDENT message payload
+        print(f"Garden received PULSE message from {connection.getpeername()} with payload: {payload}")
+        # Add logic to handle the IDENT message (e.g., register the client)
+
+
 def handle_client(csock, addr, garden):
     print(f"Connection from {addr}")
     garden.add_connection(addr, csock)
     try:
-        protocol_handler = ProtocolHandler(csock)
+        protocol_handler = ProtocolHandler(csock, garden) 
         protocol_handler.handle_connection()
     except Exception as e:
         print(f"Error handling connection from {addr}: {e}")

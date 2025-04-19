@@ -1,8 +1,9 @@
 from proto import *
 
 class ProtocolHandler:
-    def __init__(self, connection):
+    def __init__(self, connection, garden):
         self.connection = connection
+        self.garden = garden  # Reference to the Garden instance
 
     def parse_message(self, message):
         if len(message) < 6:
@@ -42,6 +43,9 @@ class ProtocolHandler:
             print(f"Handling state update message with payload: {payload}")
         elif msg_type == PROTO_PULSE:
             print(f"Handling pulse message with payload: {payload}")
+            self.garden.handle_pulse(self.connection, payload)
+        elif msg_type == PROTO_IDENT:
+            self.garden.handle_ident(self.connection, payload)
         else:
             # Placeholder for other message types
             print(f"Received message - Type: {msg_type}, Version: {version}, Payload: {payload}")

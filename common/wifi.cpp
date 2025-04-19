@@ -67,6 +67,19 @@ bool wifi_t::discover_server() {
   return true;
 }
 
+bool wifi_t::send_msg(const char *buf, int len) {
+  // Send the message
+  if(client.write(buf, len) != len) {
+    Serial.println("Failed to send message");
+    client.stop();
+    return false;
+  }
+
+  //Serial.printf("Sent %d: %d: %s\n", type, len, payload);
+  return true;
+}
+
+#if 0
 bool wifi_t::send_msg(uint16_t type, uint16_t len, char *payload) {
   xSemaphoreTake(mtx, portMAX_DELAY);
   #warning wrap up connection + discovery to include the mutex
@@ -100,10 +113,7 @@ bool wifi_t::send_msg(uint16_t type, uint16_t len, char *payload) {
   Serial.printf("Sent %d: %d: %s\n", type, len, payload);
   return true;
 }
-
-bool wifi_t::send_msg(uint16_t type, const String &payload) {
-  return send_msg(type, payload.length(), (char*)payload.c_str());
-}
+#endif
 
 bool wifi_t::read_msg() {
   if(!client.connected()) {
@@ -198,16 +208,45 @@ void wifi_t::run() {
         WiFi.localIP().toString().c_str(), WiFi.macAddress().c_str(), 
         garden_server.isSet() ? garden_server.toString().c_str() : "[not found]");
 
+    #if 0
     // Test connection
     if(client.connected()) {
       send_msg(PROTO_PING, "PING?!");
       send_msg(PROTO_LOG, "Log!");
-      //send_sensor_msg(3, 0, 10);
+      send_sensor_msg(3, 0, 10);
 
-      while (read_msg()) {
+      //while (read_msg()) {
         // Keep reading messages until no more are available?
-      }
+    
     }
+    #endif
+  }
+
+  if(!client.connected()) {
+    // No need to build up a queue if we're not connected
+    msgq = {};
+    return;
+  }
+
+  // Process the message queue
+  if(!msgq.empty()) {
+    xSemaphoreTake(mtx, portMAX_DELAY);
+    msg_t msg = msgq.front();
+    msgq.pop();
+    xSemaphoreGive(mtx);
+
+    if(!send_msg(msg)) {
+    //if(!send_msg(msg.type, msg.len, (char*)msg.payload)) {
+      Serial.println("Failed to send message from queue");
+    }
+    else {
+      Serial.printf("Sent message: Type=%d, Length=%d, Payload=%s\n", 
+          msg.get_type(), msg.get_length(), msg.get_payload()); 
+    }
+  }
+
+  while (read_msg()) {
+    // Keep reading messages until no more are available?
   }
 }
 
