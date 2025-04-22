@@ -34,14 +34,17 @@ struct rainbow_t {
 };
 
 #define MAX_SCORE_DURATION 10000
-struct tracer_v2_t {
+struct tracer_v2_pulse_t {
   CRGB *leds = NULL;
   uint8_t brightness = DEF_RIPPLE_BRIGHTNESS;
-  uint8_t color = 0;
+  uint32_t color = 0;
   uint16_t init_pos = 0, 
            num_leds = 0;
-  int16_t pos = 0,
+  uint16_t pos = 0,
           spread = 0;
+  bool reverse = false;
+
+  int8_t direction = -1;
 
   // int8_t velocity = 0;
   uint8_t // life = 0,
@@ -51,18 +54,17 @@ struct tracer_v2_t {
   bool exist = false;
   uint32_t t_last_update = 0,
            t_last_trigger = 0,
-           t_update_delay;
-  
-  void init(CRGB *l, uint16_t nleds, uint16_t pos) {
-    leds = l;
-    num_leds = nleds;
-    init_pos = pos;
-  }
+           t_update_delay = 0;
 
-  bool trigger(uint16_t lidx, uint32_t score, uint32_t score_duration) {
-    if(exist)
+  tracer_v2_pulse_t(
+      CRGB *l, uint16_t nl, uint16_t lidx, uint32_t score, uint32_t score_duration) {
+    //if(exist)
       // let the last one finish first
-      return false;
+    //  return false;
+
+    leds = l;
+    num_leds = nl;
+    pos = init_pos = lidx;
 
     uint32_t now = millis();
     // The delay is based on the duration. Longer duration, shorter delay
@@ -77,8 +79,6 @@ struct tracer_v2_t {
 
     color = CRGB::White; // millis() & 255; // random8() & 255;
 
-    pos = init_pos = lidx;
-
     // score determines the fade
     // at 100%, fade is low
     if(score > 100) score = 100;
@@ -92,17 +92,90 @@ struct tracer_v2_t {
     // recalc the update delay to be per frame
     // t_update_delay = map(score, 0, 100, 40, 2);
     t_update_delay = 5; // map(score_duration, 0, MAX_SCORE_DURATION, 20, 1);
-    spread =  map(score_duration, 0, MAX_SCORE_DURATION, 5, 30);
+    spread =  map(score_duration, 0, MAX_SCORE_DURATION, 1, 20);
     t_last_update = 0;
 
     exist = true;
 
-    Serial.printf("Tracer starting using score %lu\n", score);
+    Serial.printf("Tracer starting using score %lu & duration: %lu\n", score, score_duration);
+  }
 
-    return true;
+  tracer_v2_pulse_t(CRGB *l, uint16_t nl, uint32_t c, uint8_t f, uint16_t s, uint32_t d) {
+    pos = init_pos = 0;
+    num_leds = nl;
+    leds = l;
+    t_update_delay = d;
+    color = c;
+    fade = f;
+    spread = s;
+    t_update_delay = d;
+    t_last_update = 0;
+    exist = true;
+    reverse = true;
+
+    Serial.printf("Remote tracer starting (color: %u, fade: %u, spread: %lu, d: %lu)\n", c, f, s, d);
+    //Serial.println("jk"); exist=false;
   }
 
   void step();
+};
+
+#include <list>
+
+#define MAX_TRACER_PULSES 8
+#define T_THROTTLE_MS 1000
+struct tracer_v2_t {
+  CRGB *leds = NULL;
+  uint16_t num_leds = 0;
+  uint32_t t_last = 0;
+
+  # warning a small array that we just iterate over to check for "exist" is probably better than a small quueue
+  std::list<tracer_v2_pulse_t> nodes;
+
+  void init(CRGB *l, uint16_t nleds) {
+    leds = l;
+    num_leds = nleds;
+  }
+
+  void step() {
+    for(auto it = nodes.begin(); it != nodes.end();) {
+      it->step();
+      if(!it->exist) {
+        it = nodes.erase(it);
+      }
+      else
+        ++it;
+    }
+  }
+
+  void trigger(uint16_t lidx, uint32_t score, uint32_t score_duration) {
+    if(nodes.size() > MAX_TRACER_PULSES)
+      return;
+
+    uint32_t now = millis();
+    if(now - t_last < T_THROTTLE_MS)
+      return;
+    t_last = now;
+
+    Serial.printf("starting pulse with: %lu, %u, %u\n", lidx, score, score_duration);
+
+    nodes.push_back(tracer_v2_pulse_t(leds, num_leds, lidx, score, score_duration));
+  }
+
+  // Currently
+  // Only called for reverse tracers
+  void trigger(uint32_t c, uint8_t f, uint16_t s, uint32_t d) {
+   if(nodes.size() > MAX_TRACER_PULSES)
+      return;
+    uint32_t now = millis();
+    if(now - t_last < T_THROTTLE_MS)
+      return;
+    t_last = now;
+
+    Serial.printf("starting reverse pulse with: %lu, %u, %u, %lu\n", c, f, s, d);
+
+    nodes.push_back(tracer_v2_pulse_t(leds, num_leds, c, f, s, d));
+  }
 };
 
 struct tracer_t {

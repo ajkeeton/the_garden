@@ -13,6 +13,8 @@ wifi_t wifi;
 benchmark_t bloop0;
 
 int blink_delay = 500;
+// To make sure things don't start running until after core 0 has finished setup()
+bool ready_core_0 = false;
 
 void on_sens_trigger_start(int strip, int led, const sensor_state_t &s) {
   wads.on_sens_start(strip, led, s);
@@ -50,19 +52,21 @@ int button_state() {
 }
 
 void loop() {
+  // NOTE: intentionally keeping blink the wifi core. 
+  // That way we have info coming from cores, and if one locks up, we can tell which
+  blink();
+  
   bloop0.start();
-  // XXX if wifi becomes noblocking, put mux.next() here (removed from state code)
-  wifi.run();
+  wifi.next();
   wads.next_core_0();
+
   bloop0.end();
 }
 
 void loop1() {
-  // NOTE: intentionally keeping blink the wifi core. 
-  // That way we have info coming from cores, and if one locks up, we can tell which
   blink(); 
 
-  switch(button_state()) { // XXX Move to other core?
+  switch(button_state()) {
     case 3:
       wads.button_pressed();
       break;
@@ -83,41 +87,26 @@ void loop1() {
   wads.next_core_1();
 }
 
-bool ready_core_0 = false;
-
 void setup1() {
-  while(!ready_core_0) {}
-
   pinMode(IN_BUTTON, INPUT_PULLUP);
   pinMode(IN_DIP, INPUT_PULLUP);
 
-  blink();
+  while(!ready_core_0) {}
 
   wads.init();
-  
-  delay(250); // power-up safety delay (used in some of the fastled example code)
-
-  // NOTE: the FastLED.addLeds has to be broken out like due to the template 
-  // requiring a constant expression (LED_PINx)
-
-  #if 0
-  display.clearDisplay();
-  display.setTextColor(SH110X_WHITE);
-  display.setCursor(2, 5);
-  display.println("Wadsworth'ing...");
-  display.display();
-  #endif
-
   Serial.println("Wadsworth'ing...");
 }
 
 void setup() {
+  blink();
+
   Serial.begin(9600);
 
   uint32_t now = millis();
-  // Wait up to 2 seconds for serial to be ready
+  // Wait up to 2 seconds for serial to be ready, otherwise just move on...
   while(!Serial && (millis() - now < 2000)) { }
   delay(250);
-  ready_core_0 = true;
+
   wifi.init("wadsworth");
+  ready_core_0 = true;
 }

@@ -1,73 +1,54 @@
 #include "common.h"
 #include "wifi.h"
 #include "proto.h"
-#include <LEAmDNS.h> // Include the LEAmDNS library
+//#include <SimpleMDNS.h>
 
 char ssid[] = "Shenanigans";
 char pass[] = "catscatscats";
-
-// WiFiMulti wf;
-MDNSResponder mdns; // Create an instance of the LEAmDNS responder
+const char *gardener = "10.0.0.78";
+int port = 7777;
 
 void wifi_t::init(const char *n) {
   strcpy(name, n);
-
-  Serial.printf("Initializing WiFi. mDNS name: %s\n", name);
-
-  WiFi.beginNoBlock(ssid, pass);
-  WiFi.setTimeout(100);
-
-  if(!mdns.begin(name)) { 
-    Serial.println("Error starting mDNS");
-    return;
-  }
-
   init();
 }
 
 void wifi_t::init() {
+  //Serial.printf("Initializing WiFi. mDNS name: %s\n", name);
+
+  int status = WL_IDLE_STATUS;
+  //WiFi.beginNoBlock(ssid, pass);
+  //WiFi.setTimeout(10000);
   if(WiFi.status() != WL_CONNECTED) {
-    return;
-  }
-#if 0
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+    WiFi.begin(ssid, pass);
 
-  // Initialize mDNS
-  if (!mdns.begin(name)) { 
-    Serial.println("Error starting mDNS");
-    return;
+    // Perform a WiFi scan
+    int nfound = WiFi.scanNetworks();
+    if(nfound < 0) {
+      Serial.println("WiFi scan failed");
+    } 
+    else if (!nfound ) {
+      Serial.println("No WiFi networks found. But this hasn't been reliable at all...");
+    } 
+    else {
+      Serial.printf("Found %d WiFi networks:\n", nfound);
+      for (int i = 0; i < nfound; ++i) {
+        Serial.printf("%d: %s (%d dBm)\n", i + 1, WiFi.SSID(i), WiFi.RSSI(i));
+      }
+    }
   }
 
-  Serial.println("mDNS responder started");
-#endif
-  retry_in = 0;
+  // Disable Nagle's so we can send small packets sooner
+  client.setNoDelay(true); 
+
+  //WiFi.setTimeout(100);
 }
 
-bool wifi_t::discover_server() {
-  // Use mDNS to discover GardenServer._garden._tcp.local
-  if(!mdns.queryService("_garden", "_tcp")) {
-    Serial.println("No GardenServer found");
-    port = 0;
-    garden_server = IPAddress(0); 
+bool wifi_t::send(const char *buf, int len) {
+  if(!client.connected()) {
     return false;
   }
 
-  garden_server = mdns.IP(0);
-  port = mdns.port(0);
-
-  Serial.printf("Found Garden server: %s:%u\n", garden_server.toString().c_str(), port);
-
-  if(!client.connect(garden_server, port)) {
-    Serial.println("Failed to connect to Garden server");
-    return false;
-  }
-  return true;
-}
-
-bool wifi_t::send_msg(const char *buf, int len) {
   // Send the message
   if(client.write(buf, len) != len) {
     Serial.println("Failed to send message");
@@ -79,49 +60,8 @@ bool wifi_t::send_msg(const char *buf, int len) {
   return true;
 }
 
-#if 0
-bool wifi_t::send_msg(uint16_t type, uint16_t len, char *payload) {
-  xSemaphoreTake(mtx, portMAX_DELAY);
-  #warning wrap up connection + discovery to include the mutex
-  if(!client.connected()) {
-    if(!discover_server()) {
-      xSemaphoreGive(mtx);
-      return false;
-    }
-  }
-  xSemaphoreGive(mtx);
-
-  // Format the message
-  uint8_t message[6 + len];
-  message[0] = (type >> 8) & 0xFF;
-  message[1] = type & 0xFF;
-  message[2] = (PROTO_VERSION >> 8) & 0xFF;
-  message[3] = PROTO_VERSION & 0xFF;
-  message[4] = (len >> 8) & 0xFF;
-  message[5] = len & 0xFF;
-  memcpy(&message[6], payload, len);
-
-  // Writes shooooould be thread safe...
-
-  // Send the message
-  if(client.write(message, sizeof(message)) != sizeof(message)) {
-    Serial.println("Failed to send message");
-    client.stop();
-    return false;
-  }
-
-  Serial.printf("Sent %d: %d: %s\n", type, len, payload);
-  return true;
-}
-#endif
-
-bool wifi_t::read_msg() {
-  if(!client.connected()) {
-    Serial.println("Client not connected, cannot read messages.");
-    return false;
-  }
-
-  if(!client.available())
+bool wifi_t::recv() {
+  if(!client.connected() || !client.available())
     return false;
 
   uint8_t header[6];
@@ -132,26 +72,20 @@ bool wifi_t::read_msg() {
     return false;
   }
 
+  if(n < PROTO_HEADER_SIZE) {
+    Serial.printf("Message length too small, dropping connection: %d < %d",
+        n, PROTO_HEADER_SIZE);
+    client.stop();
+    return false;
+  }
+
   uint16_t type = (header[0] << 8) | header[1];
   uint16_t version = (header[2] << 8) | header[3];
   uint16_t length = (header[4] << 8) | header[5];
 
-  switch(type) {
-    case PROTO_PING:
-      Serial.println("Received ping");
-      break;
-    case PROTO_STATE_UPDATE:
-      Serial.println("Received state update");
-      break;
-    // The above are the only messages we should ever receive
-    default:
-      Serial.printf("Received unknown message type: %d (%x)\n", type, type);
-      client.stop();
-      return false;
-  }
-
   if(length > 1024) {
-    Serial.printf("Message %d:%d:%d - length too large, dropping connection.", type, version, length);
+    Serial.printf("Message %d:%d:%d - length too large, dropping connection", 
+        type, version, length);
     client.stop();
     return false;
   }
@@ -165,88 +99,178 @@ bool wifi_t::read_msg() {
   }
   payload[length] = 0;
 
-  Serial.printf("Received: Type=%d, Version=%d, Length=%d, Payload=%s\n", 
-      type, version, length, payload);
+  switch(type) {
+    case PROTO_PING:
+      Serial.println("Received ping. Sending identity");
+    case PROTO_IDENT:
+      send_ident();
+    case PROTO_STATE_UPDATE:
+      Serial.println("Received state update");
+      queue_recv_state(payload, length);
+      break;
+    case PROTO_PULSE:
+      Serial.println("Received pulse");
+      queue_recv_pulse(payload, length);
+      break;
+    // The above are the only messages we should ever receive
+    default:
+      Serial.printf("Received unknown message type: 0x%02X in:", type);
+      for (int i = 0; i < 6; i++) {
+        Serial.printf("%02X ", header[i]);
+      }
+      Serial.println();
+      client.stop();
+      return false;
+  }
 
   return true;
 }
 
-void wifi_t::run() {
+void wifi_t::connect() {
+  // No need to build up a queue if we're not connected
   uint32_t now = millis();
 
+  if(now - last_retry < 2500) 
+    return;
+
+  last_retry = now;
+
   if (WiFi.status() != WL_CONNECTED) {
-    if(WiFi.localIP().isSet()) {
-      // We were once connected but are no longer. Need to restart WiFi and mDNS:
-      mdns.close();
-      
-      WiFi.beginNoBlock(ssid, pass);
-
-      if(!mdns.begin(name)) { 
-        Serial.println("Error starting mDNS");
-        return;
-      }
-
-      WiFi.localIP().clear();
-    }
-
-    if (retry_in && retry_in > now)
-      return;
-
-    retry_in = now + 2000;
-    Serial.println("Trying to connect to wifi");
+    Serial.println("Not connected to WiFi. Retrying");
     init();
     return;
   }
+
+  mutex_enter_blocking(&mtx);
+  if(msgq_send.size()) 
+    msgq_send = {};
+  mutex_exit(&mtx);
+
+  Serial.printf("Trying Gardener at: %s:%u\n", gardener, port);  
   
-  if (now - last_log > 5000) {
-    //if(!garden_server.isSet() || !client.connected())
-    if(!client.connected())
-      discover_server();
-
-    last_log = now;
-    Serial.printf("IP|MAC: %s | %s. Gardener: %s\n", 
-        WiFi.localIP().toString().c_str(), WiFi.macAddress().c_str(), 
-        garden_server.isSet() ? garden_server.toString().c_str() : "[not found]");
-
-    #if 0
-    // Test connection
-    if(client.connected()) {
-      send_msg(PROTO_PING, "PING?!");
-      send_msg(PROTO_LOG, "Log!");
-      send_sensor_msg(3, 0, 10);
-
-      //while (read_msg()) {
-        // Keep reading messages until no more are available?
-    
-    }
-    #endif
-  }
-
-  if(!client.connected()) {
-    // No need to build up a queue if we're not connected
-    msgq = {};
+  if(!client.connect(gardener, port)) {
+    Serial.println("Failed to connect to Garden server");
     return;
   }
 
-  // Process the message queue
-  if(!msgq.empty()) {
-    xSemaphoreTake(mtx, portMAX_DELAY);
-    msg_t msg = msgq.front();
-    msgq.pop();
-    xSemaphoreGive(mtx);
+  send_ident();
+}
 
-    if(!send_msg(msg)) {
-    //if(!send_msg(msg.type, msg.len, (char*)msg.payload)) {
-      Serial.println("Failed to send message from queue");
-    }
-    else {
-      Serial.printf("Sent message: Type=%d, Length=%d, Payload=%s\n", 
-          msg.get_type(), msg.get_length(), msg.get_payload()); 
-    }
+void wifi_t::next() {  
+  log_info();
+
+  if(!client.connected()) {
+    connect();
+    return;
   }
 
-  while (read_msg()) {
-    // Keep reading messages until no more are available?
+  recv();
+  send_pending();
+}
+
+void wifi_t::send_pending() {
+  // Process the message queue
+  // Just one at a time
+  mutex_enter_blocking(&mtx);
+  if(msgq_send.empty()) {
+    mutex_exit(&mtx);
+    return;
+  }
+
+  msg_t msg = msgq_send.front();
+  
+  msgq_send.pop();
+  mutex_exit(&mtx);
+
+  if(!send_msg(msg)) {
+    Serial.println("Failed to send message from queue");
+  }
+  else {
+    //Serial.printf("Sent message: Type=%d, Length=%d\n", 
+    //    msg.get_type(), msg.get_length()); 
   }
 }
 
+void wifi_t::queue_send_push(const msg_t &msg) {
+  if(!client.connected())
+      return;
+
+  mutex_enter_blocking(&mtx);
+  if(msgq_send.size() > MAX_QUEUE) {
+      Serial.println("Send queue is full, dropping first message");
+      msgq_send.pop();
+  }
+  //else
+  //    Serial.printf("send q size: %lu\n", msgq_send.size());
+  msgq_send.push(msg);
+  mutex_exit(&mtx);
+}
+
+// Send message struct
+bool wifi_t::send_msg(const msg_t &msg) {
+  return send(msg.buf, msg.full_len);
+}
+
+// Identify ourselves after connecting
+void wifi_t::send_ident() {
+  if(!client.connected())
+      return;
+
+  msg_t msg(name, WiFi.macAddress().c_str());
+  // No need to queue, we only do this on first connect 
+  // and we're not on the LED core
+  if(!send_msg(msg)) {
+      Serial.println("Failed to send ident message");
+  }
+}
+
+// Send a pulse to the garden
+// Currently using it for when a sensor is triggered and we want the rest 
+// of the garden to respond
+void wifi_t::send_pulse(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay) {
+  // Pulses need to be fast. Don't queue if not connected
+  if(!client.connected())
+      return;
+
+  msg_t msg(color, fade, spread, delay);
+  queue_send_push(msg);
+}
+
+// Sensor update message
+void wifi_t::send_sensor_msg(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age) {
+  if(!client.connected())
+      return;
+
+  msg_t msg(strip, led, percent, age);
+  queue_send_push(msg);
+}
+
+// Read the next queued message
+// Intended for consumers
+// Returns true if there was a message available and populates recv_msg_t
+// recv_msg_t will have the message type set
+bool wifi_t::recv_pop(recv_msg_t &msg) {
+  mutex_enter_blocking(&mtx);
+  if(msgq_recv.empty()) {
+      mutex_exit(&mtx);
+      return false;
+  }
+
+  msg = msgq_recv.front();
+  msgq_recv.pop();
+  mutex_exit(&mtx);
+  return true;
+}
+
+void wifi_t::log_info() {
+  uint32_t now = millis();
+
+  if(now - last_log < 2500)
+    return;
+
+  last_log = now;
+
+  Serial.printf("IP|MAC: %s | %s. Gardener: %s\n", 
+    WiFi.localIP().toString().c_str(), WiFi.macAddress().c_str(), 
+    gardener);
+}

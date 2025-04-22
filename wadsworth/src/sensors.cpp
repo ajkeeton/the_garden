@@ -27,23 +27,28 @@ void sensors_t::init(int pin_start, int pin_end,
     on_trigger_start = start;
     on_is_triggered = is;
     on_trigger_off = off;
+
+    // XXX It's intentionally just pin_end. Technically we'd want pin_end - 
+    // pin_start AND an offset.
+    mux.num_inputs = pin_end;
 }
 
 void sensors_t::do_on_trigger_start(int i) {
-    //Serial.printf("Sensor %d start\n", i);
+    //Serial.printf("State on start: sensor %d: %lu, percent: %u\n", 
+    //    i, sensors[i].value, sensors[i].percent());
+
     int sidx = (map_strip_led[i] >> 16) & 0xFFFF; // Strip index
     int lidx = map_strip_led[i] & 0xFFFF; // LED index
     on_trigger_start(sidx, lidx, sensors[i]);
-
-    Serial.printf("State: sensor %d: on start: %lu\n", i, sensors[i].value);
 }
 
 void sensors_t::do_is_triggered(int i) {
+    //Serial.printf("State is triggered: %d: %lu > %lu percent: %u\n", 
+    //    i, sensors[i].value, sensors[i].minmax.get_thold(), sensors[i].percent());
+
     int sidx = (map_strip_led[i] >> 16) & 0xFFFF; // Strip index
     int lidx = map_strip_led[i] & 0xFFFF; // LED index
     on_is_triggered(sidx, lidx, sensors[i]);
-
-    //Serial.printf("State: %d: on start: %lu, %.3fs\n", i, s.value, (float)(s.age())/1000);
 }
 
 void sensors_t::do_on_trigger_off(int i) {
@@ -53,9 +58,9 @@ void sensors_t::do_on_trigger_off(int i) {
 }
 
 void sensors_t::next() {
-    mux.next();
-
     for(int i=sens_start; i<sens_end; i++) {
+        mux.next();
+
         bool was_triggered = sensors[i].t_trigger_start > 0;
         uint16_t raw = mux.read_raw(i);
         //bool is_triggered = sensors[i].update(raw);
@@ -104,10 +109,16 @@ void sensors_t::log_info() {
         }
     }
     #endif
+    #if 0
     int i=0;
     Serial.printf("Sensor %d: value: %u, age: %.03fs, minmax: %u/%u/%u\n", 
         i, sensors[i].value, (float)(sensors[i].age())/1000, 
         sensors[i].minmax.get_min(), 
         sensors[i].minmax.get_max(), 
         sensors[i].minmax.get_thold());
+    #endif
+    int i = 0;
+    Serial.printf("Sensor %d: value: %u, percent: %u, age: %.03fs\n", 
+        i, sensors[i].value, sensors[i].percent(), (float)(sensors[i].age())/1000);
+    sensors[i].minmax.log_info();
 }

@@ -30,7 +30,7 @@ void wad_t::init() {
     sensors.add(2, 0, 230); // strip 0, sensor 2, mux pin 4, LED 230
     sensors.add(3, 1, 128); // strip 1, mux pin 1, LED 128
     sensors.add(4, 1, 195); // strip 1, mux pin 5, LED 195
-
+    
     state.init(num_sensors);
 
     #ifdef LITTLE_WAD // XXX use dipswitch instead?
@@ -70,6 +70,7 @@ void wad_t::strips_next() {
     // }
 
     FastLED.show();
+    FastLED.delay(1);
 
   #if 0 
   mstate.update();

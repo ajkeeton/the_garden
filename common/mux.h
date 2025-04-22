@@ -31,8 +31,7 @@ public:
   int num_inputs = 16; // Number of inputs on the mux
   int idx = 0;
   uint32_t last = micros(),
-           #warning try a shorter delay. Not sure when things get unstable
-           delay = 100; // microseconds to settle before next analogRead
+           delay = 5; // microseconds to settle before next analogRead
 
   mux_t() {    
     pinMode(MUX_EN, OUTPUT);

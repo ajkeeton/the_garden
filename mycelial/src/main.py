@@ -3,11 +3,17 @@ import threading
 import time
 from handler import ProtocolHandler
 from zeroconf import ServiceInfo, Zeroconf
+from proto import *
 
 class Garden:
     def __init__(self):
         self.connections = {}
         self.lock = threading.Lock()
+
+        self.wadsworth = {}
+        self.wads = {}
+        self.venus = {}
+        self.squish = {}
 
     def add_connection(self, addr, connection):
         with self.lock:
@@ -16,9 +22,19 @@ class Garden:
 
     def remove_connection(self, addr):
         with self.lock:
+            print(f"Removing connection for {addr}")
+
             if addr in self.connections:
                 del self.connections[addr]
-                print(f"Removed connection: {addr}")
+            ip, port = addr
+            if ip in self.wadsworth:
+                del self.wadsworth[ip]
+            if ip in self.wads:
+                del self.wads[ip]
+            if ip in self.venus:
+                del self.venus[ip]
+            if ip in self.squish:
+                del self.squish[ip]
 
     def broadcast(self, message):
         with self.lock:
@@ -32,34 +48,75 @@ class Garden:
     def generate_messages(self):
         while True:
             time.sleep(10)  
-
-            msg_type = 1
-            version = 1
-            payload = b"server ping"
-            length = len(payload)
-
-            message = (
-                msg_type.to_bytes(2, byteorder="big") +
-                version.to_bytes(2, byteorder="big") +
-                length.to_bytes(2, byteorder="big") +
-                payload
-            )
-
             print("Broadcasting ping message to all clients...")
-            self.broadcast(message)
+            self.broadcast(build_message(PROTO_PING, b"server ping"))
+
+            print("Current state of connections:")
+            print("- Wadsworth:", list(self.wadsworth.keys()))
+            print("- Wads:", self.wads.keys())
+            print("- Venus:", self.venus.keys())
+            print("- Squishies:", self.squish.keys())
 
     def handle_ident(self, connection, payload):
+        ip, port = connection.getpeername()
         # Process the IDENT message payload
-        print(f"Garden received IDENT message from {connection.getpeername()} with payload: {payload}")
+        # print(f"Garden received ident. {ip}:{port} is {payload}")
         # Add logic to handle the IDENT message (e.g., register the client)
 
+        # payload should be <name>,<MAC>
+
+        try:
+            payload = payload.decode("utf-8")
+        except UnicodeDecodeError:
+            print(f"Error decoding payload: {payload}")
+            return
+        
+        try:
+            name, mac = payload.split(",")
+            name = str(name)
+            print(f"Ident from: {ip}:{port}, ", end="")
+            if name == "wadsworth":
+                print("It's a Wadsworth!")
+                self.wadsworth[ip] = connection 
+            elif name == "accessory":
+                print("It's one of accessory wads!")
+                self.wads[ip] = connection
+            elif name == "venus":
+                print("It's the hippy trap!")
+                self.venus[ip] = connection 
+            elif name == "squish":
+                print("Oooo it's all squishy!")
+                self.squish[ip] = connection 
+            else:
+                print(f"Unknown node type: {name}")
+                return
+        except ValueError:
+            print(f"Error splitting payload: {payload}")
+
+        #self.nodes[connection.getpeername()] = payload
 
     def handle_pulse(self, connection, payload):
+        src_ip, srcport = connection.getpeername()
+
         # Process the IDENT message payload
-        print(f"Garden received PULSE message from {connection.getpeername()} with payload: {payload}")
-        # Add logic to handle the IDENT message (e.g., register the client)
+        print(f"Garden received pulse from {connection.getpeername()} with payload: {payload.hex()}")
 
-
+        # TODO: look up coords to determine timing
+       
+        # forward pulse to all connections
+        for peer, c in self.connections.items():
+            addr, port = peer
+            #print("Checking", addr)
+            if addr == src_ip:
+                #print("same source & dest, skipping")
+                continue
+            if addr in self.wadsworth or addr in self.wads:
+                print(f"Forwarding pulse to {addr}")
+                try:
+                    c.sendall(payload)
+                except Exception as e:
+                    print(f"Error sending pulse to {addr}: {e}")
+           
 def handle_client(csock, addr, garden):
     print(f"Connection from {addr}")
     garden.add_connection(addr, csock)

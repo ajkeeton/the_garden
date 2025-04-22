@@ -1,31 +1,11 @@
 #pragma once
 
 #include "common.h"
+#include "minmax.h"
 
-struct min_max_range_t {
-    //uint16_t samples = 0;
-    uint32_t avg_min = INIT_TRIG_THOLD, 
-                avg_max = INIT_TRIG_MAX,
-                std_dev_min = 0;
-    uint32_t last_decay_min = 0,
-             last_decay_max = 0;
-    log_throttle_t log;
-    uint8_t pin = 255;
-    
-    min_max_range_t() {
-        last_decay_min = last_decay_max = millis();
-        log.log_timeout = 250;
-    }
-    
-    void update(uint16_t val);
-    uint32_t get_min() const;
-    uint32_t get_max() const;
-    uint32_t get_thold() const;
-    void decay(); // slowly close the range
-    void debug();
-};
-  
-// NOTE: A score is given as a magnitude and duration
+// State of one specific sensor
+// Handles smoothing of a sensor's value and determining what constitutes a 
+// trigger
 struct sensor_state_t {
     uint32_t t_trigger_start = 0,
              t_triggered_last_update = 0;
@@ -45,11 +25,10 @@ struct sensor_state_t {
 
         uint32_t now = millis();
 
-        if(now - t_triggered_last_update > 25) {
-           // Every 25 ms decay the score by 10%
-            value = 0.9 * value;
+        if(now - t_triggered_last_update > 15) {
+           // Every 15 ms decay the score by 5%
+            value = 0.95 * value;
             t_triggered_last_update = now;
-            //Serial.printf("%lu\n", score);
         }
     }
 
@@ -63,7 +42,7 @@ struct sensor_state_t {
         }
 
         uint32_t now = millis();
-        value = val; // XXX use short moving average?
+        value = (value * 4 + val)/5; // XXX use short moving average?
         t_triggered_last_update = now;
 
         if(!t_trigger_start) {
@@ -74,10 +53,14 @@ struct sensor_state_t {
     }
 
     uint16_t percent() const {
-        if(value < minmax.get_thold())
+        if(value <= minmax.get_thold())
             return 0;
-        // XXX This will return >100% if the value is above the max average
-        return map(value, minmax.get_thold(), minmax.get_max(), 0, 100);
+
+        //Serial.printf("sensor score: %lu, %u %lu\n", 
+        //        value, minmax.get_thold(), minmax.get_max());
+        // NOTE: This will return >100% if the value is above the max average
+        // The overflow issue from before was when get_thold > get_max
+        return map(value, minmax.get_thold(), minmax.get_max(), 1, 100);
     }
 
     uint32_t age() const {
@@ -85,8 +68,15 @@ struct sensor_state_t {
             return 0;
         return millis() - t_trigger_start;
     }
+
+    bool gradient_positive() const {
+        // XXX TODO: use for only pulsing when the value is increasing or stable
+        // Need to compute gradient over some time window
+        return minmax.gradient >= 0; 
+    }
 };
 
+// Interface to all sensors
 struct sensors_t {
     sensor_state_t sensors[MAX_MUX_IN];
     mux_t mux;

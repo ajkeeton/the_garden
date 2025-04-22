@@ -60,10 +60,6 @@ struct layer_t {
     void init(uint16_t n, bool us) {
         use_ttl = us;
 
-        //if(leds)
-        //    delete []leds;
-        //leds = new CRGB[n];
-
         if(targets)
             delete []targets;
         targets = new CRGB[n];
@@ -174,6 +170,8 @@ struct strip_t {
     //tracer_t tracers_sens[MAX_MUX_IN+1]; // Tracers for each sensor, plus one for the central pire
     //uint8_t *tracers_sens_map = NULL; // Maps each LED to a tracer index
     tracer_v2_t tracer_sens; // XXX only allowing one/strip for now, when the timing is right, it might be fine
+    tracer_v2_t reverse_pulse;
+    bool *triggered = NULL;
 
     tracer_t tracers_rand[MAX_RIPPLES_RAND];
     uint16_t n_rand_tracers = MAX_RIPPLES_RAND;
@@ -186,15 +184,12 @@ struct strip_t {
     bool is_center = false; // The center spire gets special treatment
 
     void init(CRGB *l, uint16_t nleds, bool is_ctr=false);
-
-    #if 0
-    SemaphoreHandle_t mtx = xSemaphoreCreateMutex();
-    log_throttle_t log;
-    #endif
-
     void step(uint32_t global_activity);
     CRGB trig_target_color();
-    bool on_trigger(uint16_t led, uint16_t score, uint32_t duration);
+    void on_trigger(uint16_t led, uint16_t score, uint32_t duration);
+    void on_trigger_cont(uint16_t led, uint16_t score, uint32_t duration);
+    void on_trigger_off(uint16_t led, uint16_t percent, uint32_t duration);
+
     void background_update(uint16_t global_activity);
     void find_mids();
     bool near_mids(int i);
@@ -204,10 +199,9 @@ struct strip_t {
     void do_wave(uint8_t brightness, int refresh);
     void go_white();
   
-    void handle_pulse();
+    void handle_remote_pulse(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay);
     void handle_low_activity();
     void handle_low_power();
-    //void handle_pulse_white();
 
     void log_info() {
         int ttracers = 0;

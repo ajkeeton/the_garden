@@ -5,34 +5,48 @@ class ProtocolHandler:
         self.connection = connection
         self.garden = garden  # Reference to the Garden instance
 
-    def parse_message(self, message):
-        if len(message) < 6:
-            raise ValueError("Message too short to parse")
+    #def parse_message(self, message):
+    #    if len(message) < 6:
+    #        raise ValueError("Message too short to parse")
         
-        msg_type = int.from_bytes(message[0:2], byteorder='big')
-        version = int.from_bytes(message[2:4], byteorder='big')
-        length = int.from_bytes(message[4:6], byteorder='big')
+    #    msg_type = int.from_bytes(message[0:2], byteorder='big')
+    #    version = int.from_bytes(message[2:4], byteorder='big')
+    #    length = int.from_bytes(message[4:6], byteorder='big')
         
-        if len(message) < 6 + length:
-            raise ValueError("Message length does not match the specified length")
+    #    if len(message) < 6 + length:
+    #        raise ValueError("Message length does not match the specified length")
         
-        payload = message[6:6 + length]
-        return msg_type, version, payload
+    #    payload = message[6:6 + length]
+    #    return msg_type, version, payload
 
     def handle_connection(self):
+        buffer = b""
         while True:
-            message = self.connection.recv(1024)
-            if not message:
-                break
-            
             try:
-                msg_type, version, payload = self.parse_message(message)
-                self.process_message(msg_type, version, payload)
-            except ValueError as e:
-                print(f"Error parsing message: {e}")
+                data = self.connection.recv(1024)
+                if not data:
+                    break
+                buffer += data
 
-    def process_message(self, msg_type, version, payload):
-        # Handle ping messages (type 1)
+                # Process all complete messages in the buffer
+                while len(buffer) >= 6:  # Minimum size for a message header
+                    msg_type = int.from_bytes(buffer[0:2], byteorder="big")
+                    version = int.from_bytes(buffer[2:4], byteorder="big")
+                    length = int.from_bytes(buffer[4:6], byteorder="big")
+
+                    if len(buffer) < 6 + length:
+                        # Wait for more data if the full message hasn't arrived yet
+                        break
+
+                    payload = buffer[6:6 + length]
+                    self.process_message(msg_type, version, buffer, payload)
+                    buffer = buffer[6 + length:]  # Remove the processed message from the buffer
+            except Exception as e:
+                print(f"Error handling connection: {e}")
+                break
+
+    def process_message(self, msg_type, version, full_msg, payload):
+        #print(f"Parsing {len(payload)} byte message")
         if msg_type == PROTO_PING:
             self.handle_ping(payload)
         elif msg_type == PROTO_LOG:
@@ -40,10 +54,9 @@ class ProtocolHandler:
         elif msg_type == PROTO_SENSOR:
             self.handle_sensor(payload)
         elif msg_type == PROTO_STATE_UPDATE:
-            print(f"Handling state update message with payload: {payload}")
+            print(f"Ignoring state update message with payload: {payload.hex()}")
         elif msg_type == PROTO_PULSE:
-            print(f"Handling pulse message with payload: {payload}")
-            self.garden.handle_pulse(self.connection, payload)
+            self.garden.handle_pulse(self.connection, full_msg)
         elif msg_type == PROTO_IDENT:
             self.garden.handle_ident(self.connection, payload)
         else:

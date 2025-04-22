@@ -2,37 +2,113 @@
 #include <WiFi.h>
 #include <WiFiMulti.h>
 #include <FreeRTOS.h>
-#include <task.h>
-#include <semphr.h>
 #include <queue.h>
 #include <WiFiClient.h>
 #include "common/proto.h"
 
+// Note on the mutexes:
+// https://www.raspberrypi.com/documentation/pico-sdk/high_level.html#group_mutex_1gabe21d7ce624db2df7afe86c4bba400a2
+
 // Should seldom have anything queued!
 // The queue is to prevent wifi activity from slowing LED updates 
-#define MAX_QUEUE 5 
+#define MAX_QUEUE 16
+
+#define MSG_PULSE_SIZE 11
+struct __attribute__((__packed__)) msg_pulse_t {
+    uint32_t color = 0;
+    uint8_t fade = 0;
+    uint16_t spread = 0;
+    uint32_t delay = 0;
+
+    msg_pulse_t(uint32_t c, uint8_t f, uint16_t s, uint32_t d) :
+        color(c), fade(f), spread(s), delay(d) {}
+
+    msg_pulse_t(const char *payload, int len) {
+        if (len < MSG_PULSE_SIZE)
+            return;
+
+        color = 
+            (uint32_t(payload[0]) << 24) |
+            (uint32_t(payload[1]) << 16) |
+            (uint32_t(payload[2]) << 8) |
+             uint32_t(payload[3]);
+
+        fade = uint8_t(payload[4]);
+
+        spread = 
+             (uint16_t(payload[5]) << 8) |
+              uint16_t(payload[6]);
+
+        delay = 
+            (uint32_t(payload[7]) << 24) |
+            (uint32_t(payload[8]) << 16) |
+            (uint32_t(payload[9]) << 8) |
+             uint32_t(payload[10]);
+    }
+};
+
+#define MSG_STATE_SIZE 5
+struct __attribute__((__packed__)) msg_state_t {
+    uint8_t state_idx = 0;
+    uint32_t score = 0;
+
+    msg_state_t(const char *payload, int len) {
+        if (len < MSG_STATE_SIZE) {
+            return;
+        }
+
+        state_idx = uint8_t(payload[0]);
+
+        score = 
+            (uint32_t(payload[1]) << 24) |
+            (uint32_t(payload[2]) << 16) |
+            (uint32_t(payload[3]) << 8) |
+             uint32_t(payload[4]);
+    }
+};
+
+struct recv_msg_t {
+    uint16_t type = 0;
+
+    union 
+    {
+        msg_pulse_t pulse;
+        msg_state_t state;
+    }; 
+
+    recv_msg_t() {}
+    recv_msg_t(const msg_pulse_t &p) : type(PROTO_PULSE), pulse(p) {}
+    recv_msg_t(const msg_state_t &s) : type(PROTO_STATE_UPDATE), state(s) {}
+};
 
 struct msg_t {
     uint16_t full_len = 0; // full length of the message including header
     char buf[PROTO_HEADER_SIZE + PROTO_MAX_PAYLOAD];
 
     msg_t(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay) {
-        int l = snprintf(buf + PROTO_HEADER_SIZE, sizeof(buf) - PROTO_HEADER_SIZE, 
-            "%lu,%u,%u,%lu", color, fade, spread, delay);
-
-        init_header(PROTO_PULSE, l);
+        msg_pulse_t pulse(htonl(color), fade, htons(spread), htonl(delay));
+        memcpy(buf + PROTO_HEADER_SIZE, &pulse, MSG_PULSE_SIZE);
+        init_header(PROTO_PULSE, MSG_PULSE_SIZE);
     }
 
     msg_t(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age) {
+        // TODO: build payload directly, not with snprintf
         int l = snprintf(buf + PROTO_HEADER_SIZE, sizeof(buf) - PROTO_HEADER_SIZE, 
             "%lu,%u,%lu", (uint32_t)strip << 16 | led, percent, age);
 
         init_header(PROTO_SENSOR, l);
     }
 
-    void init_header(uint16_t type, int pay_len) {
-        buf[0] = (type >> 8) & 0xFF;
-        buf[1] = type & 0xFF;
+    msg_t(const char *name, const char *mac) {
+        int len = snprintf(buf + PROTO_HEADER_SIZE, 
+                          sizeof(buf) - PROTO_HEADER_SIZE, 
+            "%s,%s", name, mac);
+        init_header(PROTO_IDENT, len);
+    }
+
+    void init_header(uint16_t t, int pay_len) {
+        buf[0] = (t >> 8) & 0xFF;
+        buf[1] = t & 0xFF;
         buf[2] = (PROTO_VERSION >> 8) & 0xFF;
         buf[3] = PROTO_VERSION & 0xFF;
         buf[4] = (pay_len >> 8) & 0xFF;
@@ -59,55 +135,73 @@ struct msg_t {
 
 class wifi_t {
 public:
-    std::queue<msg_t> msgq;
+    std::queue<msg_t> msgq_send;
+    std::queue<recv_msg_t> msgq_recv;
+
     int status = WL_IDLE_STATUS;
     uint32_t retry_in = 0,
-             last_log = 0;
-    IPAddress garden_server;
-    uint16_t port = 0;
-    char name[128]; // client name for mDNS
-    SemaphoreHandle_t mtx = xSemaphoreCreateMutex();
-    WiFiClient client; // TCP client for communication with the server
+             last_log = 0,
+             last_retry = 0;
+    uint16_t port = 7777;
+    char name[128]; 
+    mutex_t mtx;
+    WiFiClient client;
 
     wifi_t() {
         strncpy(name, "[unset]", sizeof(name));
-    }
-    void init(const char *name);
-    void init();
-    void run();
-    bool discover_server();
-    //bool send_msg(uint16_t type, uint16_t len, char *payload);
-    bool send_msg(const char *buf, int len);
-    bool send_msg(const msg_t &msg) {
-        return send_msg(msg.buf, msg.full_len);
-    }
-    bool read_msg();
-
-    void send_pulse(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay) {
-        msg_t msg(color, fade, spread, delay);
-        msg_push_queue(msg);
+        mutex_init(&mtx);
     }
     
-    void send_sensor_msg(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age) {
-        //char msg[PROTO_MAX_PAYLOAD + PROTO_HEADER_SIZE];
-        //int len = snprintf(msg, sizeof(msg) - PROTO_HEADER_SIZE, "%d,%d,%u,%lu", strip, led, percent, age);
-        //msg_push_queue(PROTO_SENSOR, payload);
-        msg_t msg(strip, led, percent, age);
-        msg_push_queue(msg);
+    // Initialize with the name to be used when the client identifies itself
+    void init(const char *name);
+    void init();
+
+    // Call with each loop
+    void next();
+
+    // Raw send
+    bool send(const char *buf, int len);
+    // Send message struct
+    bool send_msg(const msg_t &msg);
+    // Send the next message in the queue
+    void send_pending();
+    // Send a pulse to the garden
+    // Currently using it for when a sensor is triggered and we want the rest 
+    // of the garden to respond
+    void send_pulse(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay);
+    // Sensor update message
+    void send_sensor_msg(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age);
+
+    // Consume the next queued message
+    // Intended for consumers
+    // Returns true if there was a message available and populates recv_msg_t
+    // recv_msg_t will have the message type set
+    bool recv_pop(recv_msg_t &msg);
+    // Periodic status logging
+    void log_info();
+
+private:
+    void connect();
+    bool recv();
+
+    // Identify ourselves after connecting
+    void send_ident();
+
+    // Queue up a message to send
+    // Message tossed if we're not connected or if the queue is full
+    void queue_send_push(const msg_t &msg);
+
+    void queue_recv_pulse(const char *payload, int len) {
+        msg_pulse_t pulse(payload, len);
+        mutex_enter_blocking(&mtx);
+        msgq_recv.push(recv_msg_t(pulse));
+        mutex_exit(&mtx);
     }
 
-    void msg_push_queue(const msg_t &msg) {
-        if(!xSemaphoreTake(mtx, portMAX_DELAY)) {
-            Serial.println("Failed to take mutex in msg_queue");
-            return;
-        }
-        if(msgq.size() > 5) {
-            Serial.println("Message queue is full, dropping first message");
-            msgq.pop();
-        }
-
-        msgq.push(msg);
-        xSemaphoreGive(mtx);
+    void queue_recv_state(const char *payload, int len) {
+        msg_state_t state(payload, len);
+        mutex_enter_blocking(&mtx);
+        msgq_recv.push(recv_msg_t(state));
+        mutex_exit(&mtx);
     }
-
 };

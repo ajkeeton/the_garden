@@ -1,6 +1,7 @@
 #include "common.h"
 #include "gradient_palettes.h"
 #include "common/wifi.h"
+#include "patterns.h"
 
 extern wifi_t wifi;
 
@@ -154,37 +155,54 @@ void waves_t::step(uint8_t brightness, uint16_t delay, uint16_t wave_mult) {
   }
 }
 
-void tracer_v2_t::step() {
+void tracer_v2_pulse_t::step() {
   if(!exist)
     return;
 
   uint32_t now = millis();
-  // Serial.printf("tracer move? %lu now - last_update: %lu < %lu\n", pos, now - t_last_update, t_update_delay);
 
   if(now - t_last_update < t_update_delay)
     return;
 
   t_last_update = now;
 
+  uint32_t _spread = spread;
+
+  if(reverse) {
+    if(pos == (num_leds - 1) && (leds[num_leds-2] == CRGB::Black)) {
+      exist = false;
+      return;
+    }
+
+    if(pos < spread)
+      _spread = pos;
+    else if(num_leds - pos < spread)
+      _spread = num_leds - pos;
+      
+    //Serial.printf("reverse tracer move? %lu now - last_update: %lu < %lu\n", 
+    //    pos, now - t_last_update, t_update_delay);
+  }
   // We're finished when !pos && pos+1 has faded to black
   // The reason for pos+1 is in case we change the LED index before updating
   // the color. This reeeeeally shoulnd't happen, but just in case...
-  if(!pos && leds[1] == CRGB::Black) {
-    // Tell the gardener that we're done so it can forward the pulse to the others
-    wifi.send_pulse(
-      color,
-      fade,
-      spread,
-      t_update_delay);
+  else {
+    if(!pos) {//} && leds[1] == CRGB::Black) {
+      // Tell the gardener that we're done so it can forward the pulse to the others
+      wifi.send_pulse(
+          color,
+          fade,
+          spread,
+          t_update_delay);
+      exist = false;
+      // Serial.printf("Sending pulse: %lu, %lu, %lu, %lu\n", color, fade, spread, t_update_delay);   
+      return;
+    }
 
-    exist = false;
-    return;
+    if(pos < spread)
+      _spread = pos;
   }
 
-  if(pos < spread)
-    spread = pos;
-
-  for(int i=0; i < spread; i++) {
+  for(int i=0; i < _spread; i++) {
     int pi = pos+i;
     if(pi >= num_leds)
       break;
@@ -195,12 +213,18 @@ void tracer_v2_t::step() {
       leds[pi] = nblend(leds[pi], CRGB::White, 125);
   }
 
-  //brightness = scale8(brightness, fade);
   fadeToBlackBy(leds, num_leds, fade);
-  //Serial.printf("tracer at %lu, %u\n", pos, leds[pos].getLuma());
+  //Serial.printf("tracer at %lu, %u, pos < num_leds - 1: %d\n", 
+  //                pos, leds[pos>0 ? pos - 1: pos].getLuma(), pos < num_leds-1);
 
-  if(pos > 0)
-    pos--;
+  if(reverse) {
+    if(pos < num_leds-1)
+      pos++;
+  }
+  else
+    if(pos > 0)
+      pos--;
+  //if(reverse) Serial.println("[reverse exit]");
 }
 
 void wave_pulse_t::step(uint16_t activity) {

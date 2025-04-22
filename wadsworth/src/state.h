@@ -73,7 +73,7 @@ struct meta_state_t {
     // excitement
     void on_still_triggered(const sensor_state_t &s) {
         // XXX
-        // XXX The score doesn't really tell us too much right now. Rely on count
+        // XXX The score doesn't really tell us too much right now. Rely on count instead
         // XXX
 
         uint32_t now = millis();

@@ -40,6 +40,14 @@ void strip_t::init(CRGB *l, uint16_t nleds, bool is_ctr) {
   blob_asc.init(layer_waves.targets, nleds);
   white.init(transition.targets, nleds);
 
+  if(triggered) {
+    delete []triggered;
+  }
+  triggered = new bool[num_leds];
+
+  for(int i=0; i<num_leds; i++) {
+    triggered[i] = false;
+  }
   /*
   if(tracers_sens_map) {
     // If tracers_sens_map is already allocated, delete it
@@ -51,7 +59,8 @@ void strip_t::init(CRGB *l, uint16_t nleds, bool is_ctr) {
   }
   */
 
-  tracer_sens.init(layer_tracers.targets, nleds, 0);
+  tracer_sens.init(layer_tracers.targets, nleds);
+  reverse_pulse.init(layer_tracers.targets, nleds);
 
   #if 0
   if(tracers_sens)
@@ -68,7 +77,7 @@ void strip_t::init(CRGB *l, uint16_t nleds, bool is_ctr) {
   }
 }
 
-bool strip_t::on_trigger(uint16_t led, uint16_t percent, uint32_t duration) {
+void strip_t::on_trigger(uint16_t led, uint16_t percent, uint32_t duration) {
   // Trigger a steady glow and a pulse at the sensor
   uint16_t spread = map(percent, 0, 100, 0, 60);//num_leds/10);
 
@@ -89,17 +98,33 @@ bool strip_t::on_trigger(uint16_t led, uint16_t percent, uint32_t duration) {
 
   layer_glow.blur(160);
 
-  // Return value determines if we're going to signal the garden
-  return tracer_sens.trigger(led, percent, duration);
-  //uint8_t tidx = tracers_sens_map[led];
-  //tracers_sens[tidx].trigger(percent, duration);
+  // Serial.printf("strips::on_trigger pct: %u, duration: %u\n", percent, duration);
+  if(percent > 60) {
+    if(!triggered[led]) {
+      tracer_sens.trigger(led, percent - 59, duration);
+      // Make sure we can only trigger once
+      triggered[led] = true; 
+    }
+  }
+  //else if(percent < 10) {
+  //  // If the percent is low, we can trigger again
+  //  triggered[led] = false;
+  //}
+}
+
+void strip_t::on_trigger_cont(uint16_t led, uint16_t percent, uint32_t duration) {
+  on_trigger(led, percent, duration);
+}
+
+void strip_t::on_trigger_off(uint16_t led, uint16_t percent, uint32_t duration) {
+  triggered[led] = false; 
 }
 
 void strip_t::step(uint32_t global_ac) {
   uint32_t now = millis();
   uint32_t lapsed = now - last_update;
 
-  if(lapsed < 2)
+  if(lapsed < 1)
     return;
 
   last_update = now;
@@ -129,6 +154,7 @@ void strip_t::background_update(uint16_t global_activity) {
   rainbow.update();
 
   tracer_sens.step();
+  reverse_pulse.step();
 
   switch(pattern) {
     case 0:
@@ -167,7 +193,6 @@ void strip_t::background_update(uint16_t global_activity) {
     }
 }
 
-
 bool strip_t::near_mids(int lidx) {
 #if 0
   for(int i=0; i<nsens; i++)
@@ -183,8 +208,6 @@ void strip_t::do_basic_ripples(uint16_t activity) {
     tracers_rand[i].step(activity);
 
   // high activity increases fade
-  // 0 -> 3
-  // 100 -> 20
   uint16_t fade = map(activity, 0, 100, 10, 30);
   layer_tracers.fade(fade);
 }
@@ -226,7 +249,6 @@ void strip_t::find_mids() {
   #endif
 }
 
-
 void strip_t::go_white() {
   #if 0
   for(int i=0; i<num_leds; i++) {
@@ -239,25 +261,10 @@ void strip_t::go_white() {
   #endif
 }
 
-void strip_t::handle_pulse() {
-#if 0 
-  if(!mstate.pulse.is_triggered())
-    return;
-
-  for(int i=0; i<num_leds; i++) {
-    targets[i] = CRGB::White; 
-    lifespans[i] = 200;
-
-    // Hack for better transitions
-    layer_tracers[i] = layer_waves[i] = CRGB::White;
-  }
-
-  if(!mstate.pulse.do_once)
-    return;
-  
-  mstate.pattern++;
-  mstate.pulse.do_once = false;
-#endif
+void strip_t::handle_remote_pulse(
+    uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay) {
+    // Start a new tracer that moves up from the bottom  
+    reverse_pulse.trigger(color, fade, spread, delay);
 }
 
 void strip_t::handle_low_activity() {
