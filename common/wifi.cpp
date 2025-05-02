@@ -115,6 +115,10 @@ bool wifi_t::recv() {
       Serial.println("Received pulse");
       queue_recv_pulse(payload, length);
       break;
+    case PROTO_PIR_TRIGGERED:
+      Serial.println("Received PIR triggered");
+      queue_recv_pir(payload, length);
+      break;
     // The above are the only messages we should ever receive
     default:
       Serial.printf("Received unknown message type: 0x%02X in:", type);

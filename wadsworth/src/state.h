@@ -241,6 +241,31 @@ struct meta_state_t {
         return true;
     }
 
+    void on_remote_pir() {
+        uint32_t now = millis();
+        t_last_trigger = now;
+
+        // PIR throttling
+        //if(now - t_last_pir_update < T_PIR_TIMEOUT) {
+        //    return;
+        //}
+
+        t_last_pir_update = now;
+
+        Serial.printf("State: Remote PIR triggered\n");
+
+        ohai.trigger();
+        
+        switch(state) {
+            case STATE_SLEEP:
+            case STATE_WAITING:
+                // If we're waiting, we should go to low activity
+                state = STATE_LOW_ACTIVITY;
+            default:
+                break;
+        }
+    }
+
     void next() {
         uint32_t now = millis();
 
@@ -296,7 +321,7 @@ struct meta_state_t {
         }
 
         bool pthrot = (millis() - t_last_pir_update < T_PIR_TIMEOUT);
-        
+
         Serial.printf("State: %s, score: %lu, garden state/index: %lu/%lu sens trig'd: %d/%d, Ohai: %d/%d/%d, Pending: %d/%d, White: %d/%d, Sleep: %d/%d\n",
             statestr,
             score,

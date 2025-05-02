@@ -115,7 +115,7 @@ void wad_t::next_core_1() {
   if(wifi.recv_pop(msg)) {
       switch(msg.type) {
           case PROTO_PULSE:
-              Serial.printf("Wadsworth handling pulse message! %lu, %u, %u, %lu \n",
+              Serial.printf("Handling pulse message! %lu, %u, %u, %lu \n",
                   msg.pulse.color, msg.pulse.fade, msg.pulse.spread, msg.pulse.delay);
               for(int i=0; i<nstrips; i++) {
                   strips[i].handle_remote_pulse(
@@ -128,8 +128,12 @@ void wad_t::next_core_1() {
           case PROTO_STATE_UPDATE:
               state.handle_remote_update(msg.state.state_idx, msg.state.score);
               break;
+          case PROTO_PIR_TRIGGERED:
+              Serial.printf("Handling remote PIR message! %u\n", msg.pir.placeholder);
+              state.on_remote_pir();
+              break;
           default:
-              Serial.printf("Wadsworth ignoring message with type: 0x%X\n", msg.type);
+              Serial.printf("Ignoring message with type: 0x%X\n", msg.type);
               break;
       }
   }

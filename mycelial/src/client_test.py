@@ -75,6 +75,14 @@ def send_mock_pulse(sock):
 
     send_message(sock, PROTO_PULSE, payload)
 
+def send_mock_pir(sock):
+    # Mock PIR triggered message
+    index = 1
+    payload = (
+        index.to_bytes(2, byteorder="big")
+    )
+    send_message(sock, PROTO_PIR_TRIGGERED, payload)
+
 def main():
     discovery = ServerDiscovery()
     server_address, server_port = discovery.discover()
@@ -121,7 +129,8 @@ def main():
 
         while True:
             send_mock(sock, 1)
-            send_mock_pulse(sock)
+            #send_mock_pulse(sock)
+            send_mock_pir(sock)
             time.sleep(1)
 
         print("Closing")

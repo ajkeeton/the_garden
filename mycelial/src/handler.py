@@ -56,8 +56,8 @@ class ProtocolHandler:
             self.handle_sensor(payload)
         elif msg_type == PROTO_PIR_TRIGGERED:
             # Placeholder for handling PIR triggered messages
-            index = int.from_bytes(payload[0:4], byteorder='big')
-            self.garden.handle_pir_triggered(self.connection, index)
+            #index = int.from_bytes(payload[0:4], byteorder='big')
+            self.garden.handle_pir_triggered(self.connection, full_msg)
         else:
             # Placeholder for other message types
             print(f"Received message - Type: {msg_type}, Version: {version}, Payload: {payload}")

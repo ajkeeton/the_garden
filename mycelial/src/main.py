@@ -204,6 +204,20 @@ class Garden:
         # Placeholder for handling PIR triggered messages
         ip, _ = connection.getpeername()
         print(f"{ip}: PIR triggered with payload: {payload}")
+        print("TODO: send to rest of garden with approp delays")
+
+        with self.lock:
+            # forward pir signal to all connections
+            for peer, c in self.connections.items():
+                addr, port = peer
+                if addr == ip:
+                    continue
+                if addr in self.wadsworth or addr in self.wads:
+                    print(f"Forwarding pulse to {addr}")
+                    try:
+                        c.sendall(payload)
+                    except Exception as e:
+                        print(f"Error sending pulse to {addr}: {e}")
 
 def handle_client(csock, addr, garden):
     print(f"Connection from {addr}")

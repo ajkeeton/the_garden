@@ -58,7 +58,7 @@ struct __attribute__((__packed__)) msg_pulse_t {
 #define MSG_STATE_SIZE 8
 struct __attribute__((__packed__)) msg_state_t {
     uint32_t state_idx = 0,
-            score = 0;
+             score = 0;
 
     msg_state_t(const char *payload, int len) {
         if (len < MSG_STATE_SIZE) {
@@ -77,8 +77,26 @@ struct __attribute__((__packed__)) msg_state_t {
             (uint32_t(payload[6]) << 8) |
              uint32_t(payload[7]);
     }
+
     uint32_t min_size() {
         return MSG_STATE_SIZE;
+    }
+};
+
+#define MSG_PIR_SIZE 2
+struct __attribute__((__packed__)) msg_pir_t {
+    // For now, it just means a remote PIR was triggered
+    // For funsies, would be nice to scale back the affect by the distance 
+    // from the triggered PIR.
+    // For now, just act like a local one triggered
+    uint16_t placeholder = 0;
+    msg_pir_t(const char *payload, int len) {
+        if (len < 2)
+            return;
+
+        placeholder = 
+            (uint16_t(payload[0]) << 8) |
+             uint16_t(payload[1]);
     }
 };
 
@@ -89,11 +107,13 @@ struct recv_msg_t {
     {
         msg_pulse_t pulse;
         msg_state_t state;
+        msg_pir_t pir;
     }; 
 
     recv_msg_t() {}
     recv_msg_t(const msg_pulse_t &p) : type(PROTO_PULSE), pulse(p) {}
     recv_msg_t(const msg_state_t &s) : type(PROTO_STATE_UPDATE), state(s) {}
+    recv_msg_t(const msg_pir_t &s) : type(PROTO_PIR_TRIGGERED), pir(s) {}
 };
 
 struct msg_t {
@@ -238,6 +258,17 @@ private:
         msg_state_t state(payload, len);
         mutex_enter_blocking(&mtx);
         msgq_recv.push(recv_msg_t(state));
+        mutex_exit(&mtx);
+    }
+
+    void queue_recv_pir(const char *payload, int len) {
+        if(len < MSG_PIR_SIZE) {
+            Serial.printf("PIR message too short: %d\n", len);
+            return;
+        }
+        msg_pir_t pir(payload, len);
+        mutex_enter_blocking(&mtx);
+        msgq_recv.push(recv_msg_t(pir));
         mutex_exit(&mtx);
     }
 };
