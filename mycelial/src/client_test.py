@@ -24,10 +24,9 @@ class ServerDiscovery:
         print("Discovering server using mDNS...")
         browser = ServiceBrowser(self.zeroconf, self.service_type, handlers=[on_service_state_change])
 
-        # Wait for discovery
         try:
             while not self.server_address:
-                time.sleep(0.1)  # Avoid busy-waiting
+                time.sleep(0.1) 
         except KeyboardInterrupt:
             print("Discovery interrupted.")
             self.zeroconf.close()
@@ -35,18 +34,9 @@ class ServerDiscovery:
         return self.server_address, self.server_port
 
 def send_message(sock, msg_type, payload):
-    length = len(payload)
-
-    message = (
-        msg_type.to_bytes(2, byteorder="big") +
-        PROTO_VERSION.to_bytes(2, byteorder="big") +
-        length.to_bytes(2, byteorder="big") +
-        payload
-    )
-    
-    # print(f"Hexdump of payload: {message.hex()}")
-    sock.sendall(message)
-    print(f"Sent message: Type={msg_type}, Length={length}, Payload={payload.hex()}")
+    msg = build_message(msg_type, payload)
+    sock.sendall(msg)
+    print(f"Sent: Type={msg_type}, Payload={payload.hex()}")
 
 def send_mock(sock, iteration):
     send_message(sock, PROTO_LOG,
@@ -57,6 +47,10 @@ def send_mock(sock, iteration):
 
     send_mock_sensor(sock)
 
+def send_ident(sock, name):
+    payload = f"{name},MAC".encode()
+    send_message(sock, PROTO_IDENT, payload)    
+
 def send_mock_sensor(sock):
     # Mock sensor message
     index = 42
@@ -66,11 +60,6 @@ def send_mock_sensor(sock):
         value.to_bytes(4, byteorder="big")
     )
     send_message(sock, PROTO_SENSOR, payload)
-
-    # Send pulse
-    # uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay
-
-    send_mock_pulse(sock)
 
 def send_mock_pulse(sock):
     color = 0xffffff
@@ -102,12 +91,25 @@ def main():
 
         def read_responses(sock):
             try:
+                buffer = b""
                 while True:
                     response = sock.recv(1024)
                     if not response:
                         print("Server closed the connection.")
                         break
-                    print(f"Received response: {response}")
+
+                    buffer += response
+
+                    while len(buffer) >= 6:  # Minimum size for a message header
+                        msg_type, version, length = parse_header(buffer)
+                        if len(buffer) < 6 + length:
+                            # Wait for more data if the full message hasn't arrived yet
+                            break
+
+                        payload = buffer[6:6 + length]
+                        print(f"Parsed response. Type: {msg_type}, Version: {version}, Payload: 0x{payload.hex()}")
+                        buffer = buffer[6 + length:]
+
             except Exception as e:
                 print(f"Error reading from server: {e}")
 
@@ -115,14 +117,14 @@ def main():
         rthread = threading.Thread(target=read_responses, args=(sock,), daemon=True)
         rthread.start()
 
-        while True: # for i in range(5):
-            # Send a ping message every second
-            #send_mock(sock, i)
+        send_ident(sock, "wads")
+
+        while True:
+            send_mock(sock, 1)
             send_mock_pulse(sock)
             time.sleep(1)
 
-        # Close the connection
-        print("Closing connection.")
+        print("Closing")
 
 if __name__ == "__main__":
     main()

@@ -13,6 +13,11 @@
 // The queue is to prevent wifi activity from slowing LED updates 
 #define MAX_QUEUE 16
 
+// Close connection to the server if it has been quiet for too long.
+// When we lose and regain WiFi the connection doesn't reset. We wind up 
+// listening for messages but won't receive any
+#define TIMEOUT_SERVER 10*1000 
+
 #define MSG_PULSE_SIZE 11
 struct __attribute__((__packed__)) msg_pulse_t {
     uint32_t color = 0;
@@ -45,25 +50,35 @@ struct __attribute__((__packed__)) msg_pulse_t {
             (uint32_t(payload[9]) << 8) |
              uint32_t(payload[10]);
     }
+    uint32_t min_size() {
+        return MSG_PULSE_SIZE;
+    }
 };
 
-#define MSG_STATE_SIZE 5
+#define MSG_STATE_SIZE 8
 struct __attribute__((__packed__)) msg_state_t {
-    uint8_t state_idx = 0;
-    uint32_t score = 0;
+    uint32_t state_idx = 0,
+            score = 0;
 
     msg_state_t(const char *payload, int len) {
         if (len < MSG_STATE_SIZE) {
             return;
         }
 
-        state_idx = uint8_t(payload[0]);
+        state_idx = 
+            (uint32_t(payload[0]) << 24) |
+            (uint32_t(payload[1]) << 16) |
+            (uint32_t(payload[2]) << 8) |
+             uint32_t(payload[3]);
 
         score = 
-            (uint32_t(payload[1]) << 24) |
-            (uint32_t(payload[2]) << 16) |
-            (uint32_t(payload[3]) << 8) |
-             uint32_t(payload[4]);
+            (uint32_t(payload[4]) << 24) |
+            (uint32_t(payload[5]) << 16) |
+            (uint32_t(payload[6]) << 8) |
+             uint32_t(payload[7]);
+    }
+    uint32_t min_size() {
+        return MSG_STATE_SIZE;
     }
 };
 
@@ -106,6 +121,13 @@ struct msg_t {
         init_header(PROTO_IDENT, len);
     }
 
+    msg_t(uint16_t pir_index) {
+        // write the index to the payload directly
+        buf[PROTO_HEADER_SIZE] = pir_index & 0xFF;
+        buf[PROTO_HEADER_SIZE + 1] = (pir_index >> 8) & 0xFF;
+        init_header(PROTO_PIR_TRIGGERED, 2);
+    }
+
     void init_header(uint16_t t, int pay_len) {
         buf[0] = (t >> 8) & 0xFF;
         buf[1] = t & 0xFF;
@@ -138,10 +160,13 @@ public:
     std::queue<msg_t> msgq_send;
     std::queue<recv_msg_t> msgq_recv;
 
-    int status = WL_IDLE_STATUS;
     uint32_t retry_in = 0,
              last_log = 0,
-             last_retry = 0;
+             last_retry = 0,
+             // With the WiFi going up and down we sometimes don't realize 
+             // the connection is gone. Now we expect periodic pings from the 
+             // server or else we close the connection and reconnect
+             t_last_server_contact = 0;
     uint16_t port = 7777;
     char name[128]; 
     mutex_t mtx;
@@ -171,6 +196,9 @@ public:
     void send_pulse(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay);
     // Sensor update message
     void send_sensor_msg(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age);
+    // A PIR was triggered. Movement detected from afar
+    // Currently only sent when we're in a low energy state, and throttled
+    void send_pir_triggered(uint16_t pir_index);
 
     // Consume the next queued message
     // Intended for consumers
@@ -192,6 +220,10 @@ private:
     void queue_send_push(const msg_t &msg);
 
     void queue_recv_pulse(const char *payload, int len) {
+        if(len < MSG_PULSE_SIZE) {
+            Serial.printf("Pulse message too short: %d\n", len);
+            return;
+        }
         msg_pulse_t pulse(payload, len);
         mutex_enter_blocking(&mtx);
         msgq_recv.push(recv_msg_t(pulse));
@@ -199,6 +231,10 @@ private:
     }
 
     void queue_recv_state(const char *payload, int len) {
+        if(len < MSG_STATE_SIZE) {
+            Serial.printf("State message too short: %d\n", len);
+            return;
+        }
         msg_state_t state(payload, len);
         mutex_enter_blocking(&mtx);
         msgq_recv.push(recv_msg_t(state));

@@ -6,6 +6,7 @@
 char ssid[] = "Shenanigans";
 char pass[] = "catscatscats";
 const char *gardener = "10.0.0.78";
+//const char *gardener = "192.168.1.118";
 int port = 7777;
 
 void wifi_t::init(const char *n) {
@@ -16,7 +17,6 @@ void wifi_t::init(const char *n) {
 void wifi_t::init() {
   //Serial.printf("Initializing WiFi. mDNS name: %s\n", name);
 
-  int status = WL_IDLE_STATUS;
   //WiFi.beginNoBlock(ssid, pass);
   //WiFi.setTimeout(10000);
   if(WiFi.status() != WL_CONNECTED) {
@@ -72,6 +72,8 @@ bool wifi_t::recv() {
     return false;
   }
 
+  t_last_server_contact = millis();
+
   if(n < PROTO_HEADER_SIZE) {
     Serial.printf("Message length too small, dropping connection: %d < %d",
         n, PROTO_HEADER_SIZE);
@@ -104,6 +106,7 @@ bool wifi_t::recv() {
       Serial.println("Received ping. Sending identity");
     case PROTO_IDENT:
       send_ident();
+      break;
     case PROTO_STATE_UPDATE:
       Serial.println("Received state update");
       queue_recv_state(payload, length);
@@ -153,6 +156,8 @@ void wifi_t::connect() {
     return;
   }
 
+  t_last_server_contact = millis();
+
   send_ident();
 }
 
@@ -161,6 +166,13 @@ void wifi_t::next() {
 
   if(!client.connected()) {
     connect();
+    return;
+  }
+
+  uint32_t now = millis();
+  if(now - t_last_server_contact > TIMEOUT_SERVER) {
+    Serial.println("Server timed out. Disconnecting");
+    client.stop();
     return;
   }
 
@@ -236,6 +248,15 @@ void wifi_t::send_pulse(uint32_t color, uint8_t fade, uint16_t spread, uint32_t 
   queue_send_push(msg);
 }
 
+void wifi_t::send_pir_triggered(uint16_t pir_index) {
+  // Don't queue if not connected
+  if(!client.connected())
+      return;
+
+  msg_t msg(pir_index);
+  queue_send_push(msg);
+}
+
 // Sensor update message
 void wifi_t::send_sensor_msg(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age) {
   if(!client.connected())
@@ -270,7 +291,7 @@ void wifi_t::log_info() {
 
   last_log = now;
 
-  Serial.printf("IP|MAC: %s | %s. Gardener: %s\n", 
+  Serial.printf("IP|MAC: %s | %s. Gardener: %s. Connected: %d\n", 
     WiFi.localIP().toString().c_str(), WiFi.macAddress().c_str(), 
-    gardener);
+    gardener, client.connected());
 }
