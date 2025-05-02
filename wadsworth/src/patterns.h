@@ -142,6 +142,8 @@ struct tracer_v2_t {
       it->step();
       if(!it->exist) {
         it = nodes.erase(it);
+        // not sure if the iterator is still valid, just break for now
+        break; 
       }
       else
         ++it;
@@ -231,13 +233,13 @@ struct tracer_t {
   void step(uint16_t activity);
 };
 
-struct waves_t {
+struct animate_waves_t {
   uint8_t wave_offset = 0;
   uint32_t last_update = 0;
   CRGB *leds = NULL;
   uint16_t num_leds = 0;
 
-  waves_t() {
+  animate_waves_t() {
     wave_offset = random8();
   }
 
@@ -247,6 +249,22 @@ struct waves_t {
   }
 
   void step(uint8_t brightness, uint16_t delay, uint16_t wave_mult);
+};
+
+#warning TODO
+struct animate_pulse_white_t {
+  uint8_t brightness = 0;
+  uint16_t num_leds = 0;
+  CRGB *leds = NULL;
+  uint32_t last_update = 0;
+
+  void init(CRGB *l, uint16_t n) {
+    leds = l;
+    num_leds = n;
+    last_update = millis();
+  }
+
+  void step(uint16_t amount) {}
 };
 
 struct wave_pulse_t {

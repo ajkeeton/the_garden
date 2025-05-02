@@ -79,6 +79,10 @@ struct sensor_state_t {
 // Interface to all sensors
 struct sensors_t {
     sensor_state_t sensors[MAX_MUX_IN];
+
+    // PIR sensors
+    bool pir_map[MAX_MUX_IN];
+
     mux_t mux;
     int sens_start = 0,
         sens_end = 0;
@@ -86,6 +90,7 @@ struct sensors_t {
     void (*on_trigger_start)(int, int, const sensor_state_t &) = NULL;
     void (*on_is_triggered)(int, int, const sensor_state_t &) = NULL;
     void (*on_trigger_off)(int, int, const sensor_state_t &) = NULL;
+    void (*on_pir)(int) = NULL;
 
     // Mapping of sensor to strip and LED index
     // To keep it simple, just using an array it uints, where first 2 bytes is the strip, next 2 is the LED
@@ -95,12 +100,15 @@ struct sensors_t {
     void init(int pin_start, int pin_end, 
             void (*start)(int, int, const sensor_state_t &),
             void (*is)(int, int, const sensor_state_t &),
-            void (*off)(int, int, const sensor_state_t &));
+            void (*off)(int, int, const sensor_state_t &),
+            void (*pir)(int)
+        );
     void add(uint16_t sensor, uint16_t strip, uint16_t led);
-
+    void add_pir(uint16_t mux_pin);
     void do_on_trigger_start(int i);
     void do_is_triggered(int i);
     void do_on_trigger_off(int i);
+
     void next();
 
     uint16_t num_sens() {

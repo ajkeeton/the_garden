@@ -28,6 +28,10 @@ void on_sens_trigger_off(int strip, int led, const sensor_state_t &s) {
   wads.on_sens_off(strip, led, s);
 }
 
+void on_pir(int pir_idx) {
+  wads.on_pir(pir_idx);
+}
+
 int button_state() {
   static uint16_t debounce = 0;
   EVERY_N_MILLISECONDS(5) {

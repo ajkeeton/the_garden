@@ -5,6 +5,7 @@ sensors_t::sensors_t() {
 
     for(int i=0; i<MAX_MUX_IN; i++) {
         map_strip_led[i] = 0; // strip 0, LED 0
+        pir_map[i] = false;
     }
 }
 
@@ -17,16 +18,27 @@ void sensors_t::add(uint16_t sensor, uint16_t strip, uint16_t led) {
     map_strip_led[sensor] = ((uint32_t)(strip) << 16) | led;
 }
 
+void sensors_t::add_pir(uint16_t mux_pin) {
+    if(mux_pin >= MAX_MUX_IN) {
+        Serial.printf("Sensor %u is out of range, max is %d\n", mux_pin, MAX_MUX_IN);
+        return;
+    }
+    pir_map[mux_pin] = true;
+}
+
 void sensors_t::init(int pin_start, int pin_end, 
         void (*start)(int, int, const sensor_state_t &),
         void (*is)(int, int, const sensor_state_t &),
-        void (*off)(int, int, const sensor_state_t &)) {
+        void (*off)(int, int, const sensor_state_t &),
+        void (*pir)(int)
+    ) {
 
     sens_start = pin_start;
     sens_end = pin_end;
     on_trigger_start = start;
     on_is_triggered = is;
     on_trigger_off = off;
+    on_pir = pir;   
 
     // XXX It's intentionally just pin_end. Technically we'd want pin_end - 
     // pin_start AND an offset.
@@ -60,9 +72,18 @@ void sensors_t::do_on_trigger_off(int i) {
 void sensors_t::next() {
     for(int i=sens_start; i<sens_end; i++) {
         mux.next();
+        uint16_t raw = mux.read_raw(i);
+
+        if(pir_map[i]) {
+            // With the 14.6V tolerant sensor boards, a triggered PIR comes out to about 180
+            if(raw >= 150) {
+                // PIR is triggered. Hit the callback to update the global State
+                on_pir(i);
+            }
+            continue;
+        }
 
         bool was_triggered = sensors[i].t_trigger_start > 0;
-        uint16_t raw = mux.read_raw(i);
         //bool is_triggered = sensors[i].update(raw);
         sensors[i].update(raw);
         bool is_triggered = sensors[i].t_trigger_start > 0;
@@ -71,7 +92,7 @@ void sensors_t::next() {
         if(!was_triggered) {
             if(is_triggered)
                 do_on_trigger_start(i);
-            return;
+            continue;
         }
         
         // We were triggered. Check if we still are

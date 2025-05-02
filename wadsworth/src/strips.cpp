@@ -28,17 +28,19 @@ void strip_t::init(CRGB *l, uint16_t nleds, bool is_ctr) {
     leds[i] = CRGB::Black;
   }
 
-  layer_glow.init(nleds, true);
+  layer_white.init(nleds, false);
+  layer_colored_glow.init(nleds, true);
   layer_waves.init(nleds, false);
   layer_tracers.init(nleds, false);
-  transition.init(nleds, false);
+  layer_transition.init(nleds, false);
   
+  // These are the LED animations themselves
   rainbow.init(nleds);
   waves.init(layer_waves.targets, nleds);
   wave_pulse.init(layer_waves.targets, nleds);
   blobs.init(layer_waves.targets, nleds);
   blob_asc.init(layer_waves.targets, nleds);
-  white.init(transition.targets, nleds);
+  // white.init(layer_white.targets, nleds);
 
   if(triggered) {
     delete []triggered;
@@ -88,15 +90,15 @@ void strip_t::on_trigger(uint16_t led, uint16_t percent, uint32_t duration) {
 
     if(j >= 0) {
       CRGB color = rainbow.get(j, brightness);
-      layer_glow.set(j, color, 250);
+      layer_colored_glow.set(j, color, 250);
     }
     if(k < num_leds) {
       CRGB color = rainbow.get(k, brightness);
-      layer_glow.set(j, color, 250);
+      layer_colored_glow.set(j, color, 250);
     }
   }
 
-  layer_glow.blur(160);
+  layer_colored_glow.blur(160);
 
   // Serial.printf("strips::on_trigger pct: %u, duration: %u\n", percent, duration);
   if(percent > 60) {
@@ -120,39 +122,75 @@ void strip_t::on_trigger_off(uint16_t led, uint16_t percent, uint32_t duration) 
   triggered[led] = false; 
 }
 
+//void strip_t::on_pir() {}
+
 void strip_t::step(uint32_t global_ac) {
   uint32_t now = millis();
-  uint32_t lapsed = now - last_update;
+  uint32_t lapsed = now - t_last_update;
 
   if(lapsed < 1)
     return;
 
-  last_update = now;
-
-  // handle_low_activity();
-  // handle_low_power(); 
-  // handle_global_pulse();
+  t_last_update = now;
 
   for(int i=0; i<num_leds; i++) {
     #warning figure out best to additively blend layers
-      layer_glow.blend(leds[i], i, 255);
+      layer_colored_glow.blend(leds[i], i, 255);
       layer_waves.blend(leds[i], i, 20);
-      transition.blend(leds[i], i, 80);
+      //transition.blend(leds[i], i, 80);
       layer_tracers.blend(leds[i], i, 80);
     //}
     //leds[i] = layer_tracers.leds[i];
     //nblend(leds[i], layer_tracers.leds[i], 255);
   }
   
-  layer_glow.fade(5);
-
-  //Serial.println();
+  layer_colored_glow.fade(5);
 }
 
-void strip_t::background_update(uint16_t global_activity) {
-  // XXX Future: Only update when in a state a pattern that might use it
-  rainbow.update();
+void strip_t::fade_all(uint16_t amount) {
+  // XXX amount is a percentage with an extra 0
+  // The fade amount is out of 255, and we update fast enough that we want to 
+  // scale that back
+  amount = map(amount, 0, 1000, 0, 20);
 
+  for(int i=0; i<num_leds; i++) {
+    layer_colored_glow.fade(amount);
+    layer_waves.fade(amount);
+    layer_tracers.fade(amount);
+  }
+}
+
+// Update the layers, but don't push to the LEDs
+void strip_t::background_update(meta_state_t &state) {
+  uint16_t amount = 0;
+  if((amount = state.sleep.amount())) {
+    fade_all(amount);
+    return;
+  }
+
+  if((amount = state.pulse_white.amount())) {
+    pulse_white.step(amount);
+  }
+
+  if((amount = state.ohai.amount())) {
+    // Use the current rainbow color to apply a glow. TODO: make it blobs
+    uint16_t b = map(amount, 0, 1000, 10, 255);
+    CRGB color = rainbow.get(0, b);
+    for(int i=0; i<num_leds; i++) {
+      layer_colored_glow.set(i, color, 255);
+    }
+  }
+
+  if((amount = state.pending_transition.amount())) {
+    // XXX Future: add a pre-transition mode
+    // About to transition... reflected in the tracer motion?
+  }
+
+  uint16_t global_activity = state.percent_active();
+  
+  // XXX Future: Only update when in a state a pattern that might use it
+  // if(need_rainbow...
+  rainbow.update();
   tracer_sens.step();
   reverse_pulse.step();
 
@@ -249,16 +287,11 @@ void strip_t::find_mids() {
   #endif
 }
 
-void strip_t::go_white() {
-  #if 0
+// Force all LEDs white, skip the layers. Mostly for debugging
+void strip_t::force_white() {
   for(int i=0; i<num_leds; i++) {
-    targets[i] = CRGB::White; 
-    lifespans[i] = 750;
-
-    // Hack for better transitions
-    layer_tracers[i] = layer_waves[i] = CRGB::Black;
+    leds[i] = CRGB::White;
   }
-  #endif
 }
 
 void strip_t::handle_remote_pulse(
@@ -267,6 +300,7 @@ void strip_t::handle_remote_pulse(
     reverse_pulse.trigger(color, fade, spread, delay);
 }
 
+#if 0
 void strip_t::handle_low_activity() {
 //  if(mstate.active.is_triggered())
 //    return;
@@ -280,3 +314,4 @@ void strip_t::handle_low_power() {
 //  for(int i=0; i<num_leds; i++)
 //    targets[i] = CRGB::Black;
 }
+#endif

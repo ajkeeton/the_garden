@@ -131,7 +131,7 @@ void tracer_t::step(uint16_t activity) {
     step();
 }
 
-void waves_t::step(uint8_t brightness, uint16_t delay, uint16_t wave_mult) {
+void animate_waves_t::step(uint8_t brightness, uint16_t delay, uint16_t wave_mult) {
   uint32_t now = millis();
   if(now - last_update < delay)
     return;

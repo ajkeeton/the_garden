@@ -18,12 +18,13 @@ void wad_t::init() {
     // - First mux pin with a sensor
     // - Total sensors
     // - What to call when a sensor triggers
-    int num_sensors = 5;
+    int num_sensors = 8;
 
     sensors.init(0, num_sensors, 
             ::on_sens_trigger_start,
             ::on_sens_trigger_cont, 
-            ::on_sens_trigger_off);
+            ::on_sens_trigger_off,
+            ::on_pir);
 
     sensors.add(0, 0, 140); // strip 0, sensor 0, mux pin 0, LED 140
     sensors.add(1, 0, 90); // strip 0, sensor 1, mux pin 2, LED 90
@@ -31,6 +32,9 @@ void wad_t::init() {
     sensors.add(3, 1, 128); // strip 1, mux pin 1, LED 128
     sensors.add(4, 1, 195); // strip 1, mux pin 5, LED 195
     
+    // PIR sensors get special treatment
+    sensors.add_pir(MUX_PIN_PIR);
+
     state.init(num_sensors);
 
     #ifdef LITTLE_WAD // XXX use dipswitch instead?
@@ -61,29 +65,28 @@ void wad_t::init() {
     for(int i=0; i<num_strips(); i++) {
         strips[i].id = i;
     }
+
+    #ifdef TEST_WHITE_ONLY
+    // NOTE: with the current LED strips, all black pulls around 0.35A, all white 1.3A
+    while(true) {
+        for(int i=0; i<num_strips(); i++) {
+            strips[i].go_white();
+        }
+        FastLED.show();
+        FastLED.delay(1000);
+    }
+    #endif
 }
 
 void wad_t::strips_next() {
-    //for(int i=0; i<num_strips(); i++) {
-    strips[0].step(state.score);
-    //    strips[i].step();
-    // }
+   for(int i=0; i<num_strips(); i++) {
+      strips[i].step(state.score);
+   }
 
-    FastLED.show();
-    FastLED.delay(1);
+  FastLED.show();
+  FastLED.delay(1);
 
   #if 0 
-  mstate.update();
-
-  EVERY_N_MILLISECONDS(5000) {
-    Serial.printf("Pattern %d. total / pulse / active / low_power: %d/%d\t %d/%d\t%d/%d/%d\t%d/%d\n",
-      mstate.pattern,
-      mstate.total, mstate.num_sens,
-      mstate.pulse.is_triggered(), mstate.pulse.score,
-      mstate.active.is_triggered(), mstate.active.score, mstate.active.avg, 
-      mstate.low_power.is_triggered(), mstate.low_power.score);
-  }
-
   // A hack but gets the job done
   if(strips[0].white.do_transition()) {
     Serial.println("Transitioning up");
@@ -101,4 +104,70 @@ void wad_t::strips_next() {
     strips[i].step();
   }
   #endif
+}
+
+void wad_t::next_core_1() {
+  log_info();
+
+  // Check for any commands from the garden server
+  bench_wifi.start();
+  recv_msg_t msg;
+  if(wifi.recv_pop(msg)) {
+      switch(msg.type) {
+          case PROTO_PULSE:
+              Serial.printf("Wadsworth handling pulse message! %lu, %u, %u, %lu \n",
+                  msg.pulse.color, msg.pulse.fade, msg.pulse.spread, msg.pulse.delay);
+              for(int i=0; i<nstrips; i++) {
+                  strips[i].handle_remote_pulse(
+                      msg.pulse.color, 
+                      msg.pulse.fade, 
+                      msg.pulse.spread, 
+                      msg.pulse.delay);
+              }
+              break;
+          case PROTO_STATE_UPDATE:
+              state.handle_remote_update(msg.state.state_idx, msg.state.score);
+              break;
+          default:
+              Serial.printf("Wadsworth ignoring message with type: 0x%X\n", msg.type);
+              break;
+      }
+  }
+  bench_wifi.end();
+
+  state.next(); 
+
+  /////////////////////////////
+  // Sensor updates
+  // XXX If this moves cores, don't forget the mutex for on_trigger
+  bench_sensors.start();
+  sensors.next();
+  bench_sensors.end();
+
+  bench_led_calcs.start();
+  // XXX If wifi can be made non-blocking, move this to other core
+  for(int i=0; i<nstrips; i++) {
+    strips[i].background_update(state);
+  }
+  bench_led_calcs.end();
+
+  bench_led_push.start();
+  strips_next();
+  bench_led_push.end();
+}
+
+void wad_t::log_info() {
+  EVERY_N_MILLISECONDS(1000) {
+      //if(log_flags & LOG_STATE)
+      state.log_info();
+      //if(log_flags & LOG_SENSORS)
+      //sensors.log_info();
+      //if(log_flags & LOG_MUX)
+      sensors.mux.log_info();
+      //Serial.printf("LED update: %lums. LED calcs: %lums. Sensors: %lums. Loop 0 (WiFi etc): %lums. WiFi read: %lums\n", 
+      //    bench_led_push.avg, bench_led_calcs.avg, bench_sensors.avg, bloop0.avg, bench_wifi.avg);
+      //if(log_flags & LOG_STRIPS)
+      //strips[0].log_info();
+      //for(int i=0; i<nstrips; i++) strips[i].log_info();
+  }
 }

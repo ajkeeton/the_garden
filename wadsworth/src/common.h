@@ -7,9 +7,9 @@
 #include "common/mux.h"
 #include "patterns.h"
 
+//#define TEST_WHITE_ONLY
 //#define FIND_SENS 1
 //#define LED_TEST 1
-//#define LOG_LATENCY 1
 
 #define LOG_TIMEOUT 500 // in ms
 
@@ -34,8 +34,6 @@
 #define LED_PIN7    9
 #define LED_PIN8    8
 
-//#define MODE2 6
-
 #define NUM_LEDS1   2*144 
 #define NUM_LEDS2   2*144 
 #define NUM_LEDS3   120 // 144
@@ -55,9 +53,11 @@
 #define MAX_STRIPS 16
 #define MAX_STRIP_LENGTH 4*144
 #define MAX_MUX_IN 16
+#define MUX_PIN_PIR 6
 
 #define IN_BUTTON A2
 #define IN_DIP A1
+
 
 struct log_throttle_t {
   uint32_t last = 0;

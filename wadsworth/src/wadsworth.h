@@ -44,83 +44,14 @@ public:
                 bench_sensors,
                 bench_wifi;
 
-    void log_info() {
-        EVERY_N_MILLISECONDS(1000) {
-            //if(log_flags & LOG_STATE)
-            //state.log_info();
-            //if(log_flags & LOG_STRIPS)
-            //strips[0].log_info();
-            sensors.log_info();
-            sensors.mux.log_info();
-            Serial.printf("LED update: %lums. LED calcs: %lums. Sensors: %lums. Loop 0 (WiFi etc): %lums. WiFi read: %lums\n", 
-                bench_led_push.avg, bench_led_calcs.avg, bench_sensors.avg, bloop0.avg, bench_wifi.avg);
-            //for(int i=0; i<nstrips; i++) strips[i].log_info();
-        }
-    }
+    void log_info();
+    
     void next_core_0() {
-        log_info();
         // XXX If sensors.next() is here, add locking for on_trigger
         //sensors.mux.next();
     }
     
-    void next_core_1() {
-        // Check for any commands from the garden server
-        bench_wifi.start();
-        recv_msg_t msg;
-        if(wifi.recv_pop(msg)) {
-            switch(msg.type) {
-                case PROTO_PULSE:
-                    Serial.printf("Wadsworth handling pulse message! %lu, %u, %u, %lu \n",
-                        msg.pulse.color, msg.pulse.fade, msg.pulse.spread, msg.pulse.delay);
-                    //msg_pulse_t pulse(msg.get_payload(), msg.get_length());
-                    for(int i=0; i<nstrips; i++) {
-                        strips[i].handle_remote_pulse(
-                            msg.pulse.color, 
-                            msg.pulse.fade, 
-                            msg.pulse.spread, 
-                            msg.pulse.delay);
-                    }
-
-                    break;
-                case PROTO_STATE_UPDATE:
-                    // state.update(msg.get_payload(), msg.get_length());
-                    break;
-                default:
-                    Serial.printf("Wadsworth ignoring unknown message type: 0x%X\n", msg.type);
-                    break;
-            }
-        }
-        bench_wifi.end();
-
-        state.next(); 
-
-        // XXX If this moves cores, don't forget the mutex for on_trigger
-        bench_sensors.start();
-        sensors.next();
-        bench_sensors.end();
-
-        bench_led_calcs.start();
-
-        // XXX If wifi can be made non-blocking, move this to other core
-        for(int i=0; i<nstrips; i++) {   
-            if(state.low_power.is_triggered()) {
-                strips[i].handle_low_power();
-            }
-            if(state.active.is_triggered()) {
-                strips[i].handle_low_activity();
-            }
-            //if(state...) {
-            //    strips[i].handle_low_activity();
-            //}
-
-            strips[i].background_update(state.percent_active());
-        }
-        bench_led_calcs.end();
-
-        bench_led_push.start();
-        strips_next();
-        bench_led_push.end();
-    }
+    void next_core_1();
 
     uint16_t num_strips() {
         return sizeof(strips)/sizeof(strips[0]);
@@ -152,6 +83,17 @@ public:
         strips[strip].on_trigger_off(led, s.percent(), s.age());
     }
 
+    void on_pir(int pir_idx) {
+        if(!state.on_pir(pir_idx))
+            return;
+
+        //for(int i=0; i<nstrips; i++) {
+        //    strips[i].on_pir();
+        // }
+
+        wifi.send_pir_triggered(pir_idx);
+    }
+
     void init();
     void strips_next();
 };
@@ -159,3 +101,4 @@ public:
 void on_sens_trigger_start(int strip, int led, const sensor_state_t &s);
 void on_sens_trigger_cont(int strip, int led, const sensor_state_t &s);
 void on_sens_trigger_off(int strip, int led, const sensor_state_t &s);
+void on_pir(int pir_idx);

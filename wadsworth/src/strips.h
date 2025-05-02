@@ -1,34 +1,9 @@
 #pragma once
 #include <map>
+#include "state.h"
 #include "common.h"
 
 #define N_STATE_SAMPLES 5
-struct pattern_state_t {
-    uint32_t t_activated = 0,
-            max_duration = 100, // milliseconds this change should last
-            rest = 150,
-            rest_until = 0; //how long to wait before we can trigger this state again
-    uint8_t blend = 50; // amount to blend LEDs
-    bool active = false,
-        do_once = false,
-        need_retrigger = false;
-
-    uint32_t score = 0,
-        thold_act = 5,
-        thold_deact = 2,
-        max_score = 0;
-
-    uint32_t avg = 0;
-    uint16_t n_samples = 1;
-
-    void update_avg();
-    bool can_trigger();
-    bool is_triggered();
-    void trigger();
-    void untrigger();
-    void deactivate();
-    bool resting();
-};
 
 struct sens_glow_t {
     void update(uint16_t led, uint32_t val) {
@@ -51,12 +26,14 @@ struct sens_pulse_t {
 
 struct layer_t {
     CRGB *targets = NULL;
-    #warning switch to millis/elapsed?
+    // XXX switch to millis/elapsed
     uint16_t *ttl = NULL;
     bool use_ttl = false; 
     uint16_t num_leds = 0;
     uint32_t last_update = 0;
 
+    // n: number of LEDs
+    // us: use time-to-live
     void init(uint16_t n, bool us) {
         use_ttl = us;
 
@@ -154,23 +131,26 @@ struct layer_t {
 struct strip_t {
     uint8_t id = 0; // Strip ID, used for debugging
 
+    // The current LED animation
     uint8_t pattern = 0;
     uint16_t num_leds = 0;
-    uint32_t last_update = 0;
+    uint32_t t_last_update = 0;
   
     CRGB *leds = NULL;
-    layer_t layer_tracers,
-             layer_waves,
-             transition,
-             layer_glow;
 
-    waves_t waves;
+    layer_t layer_tracers,
+            layer_waves,
+            layer_transition,
+            layer_colored_glow,
+            layer_white;
+
+    animate_pulse_white_t pulse_white;
+    animate_waves_t waves;
     wave_pulse_t wave_pulse;
     
     //tracer_t tracers_sens[MAX_MUX_IN+1]; // Tracers for each sensor, plus one for the central pire
-    //uint8_t *tracers_sens_map = NULL; // Maps each LED to a tracer index
-    tracer_v2_t tracer_sens; // XXX only allowing one/strip for now, when the timing is right, it might be fine
-    tracer_v2_t reverse_pulse;
+    tracer_v2_t tracer_sens; // The tracers/pulses triggered with sensors 
+    tracer_v2_t reverse_pulse; // The tracers/pulses triggered remotely
     bool *triggered = NULL;
 
     tracer_t tracers_rand[MAX_RIPPLES_RAND];
@@ -179,7 +159,8 @@ struct strip_t {
     rainbow_t rainbow;
     blobs_t blobs;
     blob_asc_t blob_asc;
-    climb_white_t white;
+    
+    //climb_white_t white;
 
     bool is_center = false; // The center spire gets special treatment
 
@@ -189,19 +170,22 @@ struct strip_t {
     void on_trigger(uint16_t led, uint16_t score, uint32_t duration);
     void on_trigger_cont(uint16_t led, uint16_t score, uint32_t duration);
     void on_trigger_off(uint16_t led, uint16_t percent, uint32_t duration);
+    //void on_pir();
+    void background_update(meta_state_t &state);
 
-    void background_update(uint16_t global_activity);
     void find_mids();
     bool near_mids(int i);
     void do_rainbow();
     void do_basic_ripples(uint16_t activity);
     void do_high_energy_ripples(uint16_t activity);
     void do_wave(uint8_t brightness, int refresh);
-    void go_white();
-  
+    void fade_all(uint16_t amount);
+
+    // Gardener told us to start a pulse
     void handle_remote_pulse(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay);
-    void handle_low_activity();
-    void handle_low_power();
+
+    // Force all LEDs white, skip the layers. Mostly for debugging
+    void force_white();
 
     void log_info() {
         int ttracers = 0;
