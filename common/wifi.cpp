@@ -4,9 +4,8 @@
 //#include <SimpleMDNS.h>
 
 char ssid[] = "741-g";
-char pass[] = "catscatscats";
+char pass[] = "kittenbrigade";
 const char *gardener = "10.0.0.78";
-//const char *gardener = "192.168.1.118";
 int port = 7777;
 
 void wifi_t::init(const char *n) {
