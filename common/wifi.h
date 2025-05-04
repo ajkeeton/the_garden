@@ -16,10 +16,13 @@
 // Close connection to the server if it has been quiet for too long.
 // When we lose and regain WiFi the connection doesn't reset. We wind up 
 // listening for messages but won't receive any
-#define TIMEOUT_SERVER 10*1000 
+#define TIMEOUT_SERVER 60*1000 
 
 #define MSG_PULSE_SIZE 11
 struct __attribute__((__packed__)) msg_pulse_t {
+    // How long to wait before starting the pulse. 
+    // XXX this is currently handled server side and can be ignored
+    uint32_t t_wait = 0; 
     uint32_t color = 0;
     uint8_t fade = 0;
     uint16_t spread = 0;
@@ -32,23 +35,29 @@ struct __attribute__((__packed__)) msg_pulse_t {
         if (len < MSG_PULSE_SIZE)
             return;
 
-        color = 
+        t_wait =
             (uint32_t(payload[0]) << 24) |
             (uint32_t(payload[1]) << 16) |
             (uint32_t(payload[2]) << 8) |
              uint32_t(payload[3]);
 
-        fade = uint8_t(payload[4]);
+        color = 
+            (uint32_t(payload[4]) << 24) |
+            (uint32_t(payload[5]) << 16) |
+            (uint32_t(payload[6]) << 8) |
+             uint32_t(payload[7]);
+
+        fade = uint8_t(payload[8]);
 
         spread = 
-             (uint16_t(payload[5]) << 8) |
-              uint16_t(payload[6]);
+             (uint16_t(payload[9]) << 8) |
+              uint16_t(payload[10]);
 
         delay = 
-            (uint32_t(payload[7]) << 24) |
-            (uint32_t(payload[8]) << 16) |
-            (uint32_t(payload[9]) << 8) |
-             uint32_t(payload[10]);
+            (uint32_t(payload[11]) << 24) |
+            (uint32_t(payload[12]) << 16) |
+            (uint32_t(payload[13]) << 8) |
+             uint32_t(payload[14]);
     }
     uint32_t min_size() {
         return MSG_PULSE_SIZE;
@@ -85,26 +94,30 @@ struct __attribute__((__packed__)) msg_state_t {
 
 #define MSG_PIR_SIZE 2
 struct __attribute__((__packed__)) msg_pir_t {
-    // For now, it just means a remote PIR was triggered
-    // For funsies, would be nice to scale back the affect by the distance 
-    // from the triggered PIR.
-    // For now, just act like a local one triggered
+    // How long to wait before starting the pulse. 
+    // XXX this is currently handled server side and can be ignored
+    uint32_t t_wait = 0;
     uint16_t placeholder = 0;
     msg_pir_t(const char *payload, int len) {
         if (len < 2)
             return;
 
+        t_wait =
+            (uint32_t(payload[0]) << 24) |
+            (uint32_t(payload[1]) << 16) |
+            (uint32_t(payload[2]) << 8) |
+             uint32_t(payload[3]);
+
         placeholder = 
-            (uint16_t(payload[0]) << 8) |
-             uint16_t(payload[1]);
+            (uint16_t(payload[4]) << 8) |
+             uint16_t(payload[5]);
     }
 };
 
 struct recv_msg_t {
     uint16_t type = 0;
 
-    union 
-    {
+    union {
         msg_pulse_t pulse;
         msg_state_t state;
         msg_pir_t pir;
@@ -120,12 +133,14 @@ struct msg_t {
     uint16_t full_len = 0; // full length of the message including header
     char buf[PROTO_HEADER_SIZE + PROTO_MAX_PAYLOAD];
 
+    // Pulse
     msg_t(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay) {
         msg_pulse_t pulse(htonl(color), fade, htons(spread), htonl(delay));
         memcpy(buf + PROTO_HEADER_SIZE, &pulse, MSG_PULSE_SIZE);
         init_header(PROTO_PULSE, MSG_PULSE_SIZE);
     }
 
+    // Sensor update message
     msg_t(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age) {
         // TODO: build payload directly, not with snprintf
         int l = snprintf(buf + PROTO_HEADER_SIZE, sizeof(buf) - PROTO_HEADER_SIZE, 
@@ -134,17 +149,20 @@ struct msg_t {
         init_header(PROTO_SENSOR, l);
     }
 
+    // IDENT
     msg_t(const char *name, const char *mac) {
         int len = snprintf(buf + PROTO_HEADER_SIZE, 
                           sizeof(buf) - PROTO_HEADER_SIZE, 
-            "%s,%s", name, mac);
+            "%s,%s,%lu", name, mac, millis());
         init_header(PROTO_IDENT, len);
     }
 
+    // PIR message
     msg_t(uint16_t pir_index) {
         // write the index to the payload directly
-        buf[PROTO_HEADER_SIZE] = pir_index & 0xFF;
-        buf[PROTO_HEADER_SIZE + 1] = (pir_index >> 8) & 0xFF;
+        *(uint32_t*)(buf) = 0;
+        buf[4] = pir_index & 0xFF;
+        buf[5] = (pir_index >> 8) & 0xFF;
         init_header(PROTO_PIR_TRIGGERED, 2);
     }
 

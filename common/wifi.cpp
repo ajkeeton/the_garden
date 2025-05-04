@@ -3,7 +3,7 @@
 #include "proto.h"
 //#include <SimpleMDNS.h>
 
-char ssid[] = "Shenanigans";
+char ssid[] = "741-g";
 char pass[] = "catscatscats";
 const char *gardener = "10.0.0.78";
 //const char *gardener = "192.168.1.118";
@@ -153,12 +153,14 @@ void wifi_t::connect() {
     msgq_send = {};
   mutex_exit(&mtx);
 
-  Serial.printf("Trying Gardener at: %s:%u\n", gardener, port);  
+  Serial.printf("Trying Gardener at: %s:%u ....", gardener, port);  
   
   if(!client.connect(gardener, port)) {
-    Serial.println("Failed to connect to Garden server");
+    Serial.println("Connect failed");
     return;
   }
+  
+  Serial.println("Success!");
 
   t_last_server_contact = millis();
 
@@ -295,7 +297,7 @@ void wifi_t::log_info() {
 
   last_log = now;
 
-  Serial.printf("IP|MAC: %s | %s. Gardener: %s. Connected: %d\n", 
+  Serial.printf("IP|MAC: %s | %s. Expecting gardener at %s. Connected: %d\n", 
     WiFi.localIP().toString().c_str(), WiFi.macAddress().c_str(), 
     gardener, client.connected());
 }

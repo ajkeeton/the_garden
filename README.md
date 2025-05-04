@@ -10,4 +10,11 @@
 *Maki's Squishy Thing*
 
 *Mycelial*
-The command hub
+The Garden server
+
+NOTES:
+For the Pi 4, need to disable wireless power saving:
+
+```
+echo iwconfig wlan0 power off > /etc/rc.local
+```

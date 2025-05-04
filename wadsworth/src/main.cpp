@@ -95,6 +95,10 @@ void setup1() {
   pinMode(IN_BUTTON, INPUT_PULLUP);
   pinMode(IN_DIP, INPUT_PULLUP);
 
+  if(analogRead(IN_DIP) < 100) {
+    // I'm a decorative wad
+  }
+
   while(!ready_core_0) {}
 
   wads.init();

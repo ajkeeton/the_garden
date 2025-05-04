@@ -58,7 +58,6 @@
 #define IN_BUTTON A2
 #define IN_DIP A1
 
-
 struct log_throttle_t {
   uint32_t last = 0;
   uint32_t log_timeout = LOG_TIMEOUT;
