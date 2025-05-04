@@ -26,3 +26,10 @@ def parse_header(buffer):
     length = int.from_bytes(buffer[4:6], byteorder="big")
 
     return msg_type, version, length
+
+def build_state_update(index, value):
+    payload = (
+        index.to_bytes(4, byteorder="big") +
+        value.to_bytes(4, byteorder="big")
+    )
+    return build_message(PROTO_STATE_UPDATE, payload)

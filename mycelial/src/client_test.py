@@ -3,6 +3,7 @@ import time
 from zeroconf import Zeroconf, ServiceBrowser, ServiceStateChange
 from proto import *
 import threading
+import sys
 
 class ServerDiscovery:
     def __init__(self, service_type="_garden._tcp.local."):
@@ -47,8 +48,11 @@ def send_mock(sock, iteration):
 
     send_mock_sensor(sock)
 
-def send_ident(sock, name):
-    payload = f"{name},MAC".encode()
+def send_ident(sock, name, mac):
+    # get time since start in milliseconds
+    start_time = int(time.time() * 1000)
+    #payload = start_time.to_bytes(4, byteorder="big")
+    payload = f"{name},{mac},{start_time}".encode()
     send_message(sock, PROTO_IDENT, payload)    
 
 def send_mock_sensor(sock):
@@ -62,11 +66,13 @@ def send_mock_sensor(sock):
     send_message(sock, PROTO_SENSOR, payload)
 
 def send_mock_pulse(sock):
+    wait = 0
     color = 0xffffff
     fade = 100
     spread = 10
     delay = 10
     payload = (
+        wait.to_bytes(4, byteorder="big") +
         color.to_bytes(4, byteorder="big") +
         fade.to_bytes(1, byteorder="big") +
         spread.to_bytes(2, byteorder="big") +
@@ -76,14 +82,21 @@ def send_mock_pulse(sock):
     send_message(sock, PROTO_PULSE, payload)
 
 def send_mock_pir(sock):
-    # Mock PIR triggered message
+    wait = 0
     index = 1
     payload = (
+        wait.to_bytes(4, byteorder="big") +
         index.to_bytes(2, byteorder="big")
     )
     send_message(sock, PROTO_PIR_TRIGGERED, payload)
 
 def main():
+    mac = "MOCK-MAC"
+
+    if len(sys.argv) == 2:
+        mac = sys.argv[1]
+        print(f"Using MAC", mac)
+
     discovery = ServerDiscovery()
     server_address, server_port = discovery.discover()
 
@@ -125,11 +138,11 @@ def main():
         rthread = threading.Thread(target=read_responses, args=(sock,), daemon=True)
         rthread.start()
 
-        send_ident(sock, "wads")
+        send_ident(sock, "wads", mac)
 
         while True:
             send_mock(sock, 1)
-            #send_mock_pulse(sock)
+            send_mock_pulse(sock)
             send_mock_pir(sock)
             time.sleep(1)
 

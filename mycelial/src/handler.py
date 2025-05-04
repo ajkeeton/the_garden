@@ -7,16 +7,18 @@ class ProtocolHandler:
         self.garden = garden  # Reference to the Garden instance
 
     def handle_connection(self):
+        use_quickack = False
+        if hasattr(socket, 'TCP_QUICKACK'):
+            use_quickack = True
+
         buffer = b""
         while True:
             try:
                 # Don't delay our ACKs
+                # Must be set each time
                 # This only works on Linux
-                try:
-                    if hasattr(socket, 'TCP_QUICKACK'):
-                        self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
-                except Exception as e:
-                    print(f"Error setting TCP_QUICKACK: {e}")
+                if use_quickack:
+                    self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
 
                 data = self.connection.recv(1024)
                 if not data:
@@ -35,8 +37,8 @@ class ProtocolHandler:
                     self.process_message(msg_type, version, buffer[0:6+length], payload)
                     buffer = buffer[6 + length:]  # Remove the processed message from the buffer
             except Exception as e:
-                print(f"Error handling connection: {e}")
-                break
+                print(f"Error handling connection {self.connection.getpeername()}: {e}")
+                raise
 
     def process_message(self, msg_type, version, full_msg, payload):
         #print(f"Parsing {len(payload)} byte message")

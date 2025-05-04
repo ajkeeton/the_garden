@@ -4,12 +4,14 @@ import time
 from handler import ProtocolHandler
 from zeroconf import ServiceInfo, Zeroconf
 from proto import *
+from conf import Config
+import math
 
 STATE_TIMEOUT = 5
+DEF_CONF = "config.yaml"
 
 class State:
     def __init__(self):
-        #self.data = {}
         self.t_last_update = 0
         self.updates = []
         self.score = 0
@@ -38,7 +40,7 @@ class State:
 
             # Remove old updates and subtract from score
             if tnow - STATE_TIMEOUT > last:
-                print(f"Removing old update {i}: {self.updates[i]}")
+                # print(f"Removing old update {i}: {self.updates[i]}")
                 self.score -= score
                 # the same node may have been active more recently
                 # the active_indices value always reflects most recent
@@ -55,6 +57,9 @@ class Garden:
     def __init__(self):
         self.active_wads = 0
         self.connections = {}
+        self.ip_to_mac = {}
+
+        self.t_offsets = {} # map of time offsets for each connection
         self.lock = threading.Lock()
 
         self.wadsworth = {}
@@ -63,10 +68,12 @@ class Garden:
         self.squish = {}
 
         self.state = State()
+        self.conf = Config(DEF_CONF)
 
     def add_connection(self, addr, connection):
         with self.lock:
             self.connections[addr] = connection
+            self.t_offsets[addr] = 0 # this will get set when we receive an ident
             print(f"Added connection: {addr}")
 
     def remove_connection(self, addr):
@@ -75,6 +82,8 @@ class Garden:
 
             if addr in self.connections:
                 del self.connections[addr]
+                del self.t_offsets[addr]
+
             ip, _ = addr
             if ip in self.wadsworth:
                 self.active_wads -= 1
@@ -89,11 +98,13 @@ class Garden:
                 self.active_wads -= 1
                 del self.squish[ip]
 
-    def broadcast(self, message):
+    def broadcast(self, ignore_me, message):
         with self.lock:
-            for addr, connection in self.connections.items():
+            for addr, conn in self.connections.items():
+                if addr == ignore_me:# or addr not in {**self.wadsworth, **self.wads}:
+                    continue
                 try:
-                    connection.sendall(message)
+                    conn.sendall(message)
                     print(f"Sent message to {addr}")
                 except Exception as e:
                     print(f"Error sending message to {addr}: {e}")
@@ -103,7 +114,7 @@ class Garden:
             time.sleep(10)
 
             print("Broadcasting ping message to all clients...")
-            self.broadcast(build_message(PROTO_PING, b"server ping"))
+            self.broadcast(None, build_message(PROTO_PING, b"server ping"))
 
             print("Current state:")
             with self.lock:
@@ -117,19 +128,6 @@ class Garden:
             if self.state.score > 0:
                 print("Sending state update")
                 self.send_state_update()
-
-    def send_state_update(self):
-        pat = self.state.pattern
-        score = self.state.score / self.active_wads if self.active_wads > 0 else 0
-        
-        score = int(score)
-        payload = (
-            pat.to_bytes(4, byteorder="big") +
-            score.to_bytes(4, byteorder="big")
-        )
-        
-        print(f"Broadcasting state update message: {pat} {score}")
-        self.broadcast(build_message(PROTO_STATE_UPDATE, payload))
 
     def handle_sensor(self, connection, index, score):
         ip, _ = connection.getpeername()
@@ -153,10 +151,18 @@ class Garden:
             return
         
         try:
-            name, mac = payload.split(",")
+            name, mac, millis = payload.split(",")
             name = str(name)
-            print(f"Ident from: {ip}:{port}, ", end="")
+            # my time in millis since starting
+            t = int(time.time() * 1000)
+            # offset is the difference between my time and theirs
+            # this is the time I should use to calculate delays
+            self.t_offsets[ip] = t - int(millis)
+
+            print(f"Ident from: {ip}:{port}, millis: {millis}: ", end="")
             self.active_wads += 1
+            self.ip_to_mac[ip] = mac
+
             with self.lock:
                 if name == "wadsworth":
                     print(f"It's a Wadsworth! MAC: {mac}")
@@ -175,49 +181,106 @@ class Garden:
                     self.active_wads -= 1
                     print(f"Unknown node type: {name}")
                     return
-        except ValueError:
-            print(f"Error splitting payload: {payload}")
+                
+            # If there's no entry in the config, add it
+            self.conf.touch(name, ip, mac)
 
-        #self.nodes[connection.getpeername()] = payload
+        except ValueError:
+            print(f"Error handling ident: {payload.hex()}")
 
     def handle_pulse(self, connection, payload):
-        src_ip, srcport = connection.getpeername()
-
-        print(f"{src_ip}: pulsed with: {payload.hex()}")
-
-        # TODO: look up coords to determine timing
-       
-        with self.lock:
-            # forward pulse to all connections
-            for peer, c in self.connections.items():
-                addr, port = peer
-                if addr == src_ip:
-                    continue
-                if addr in self.wadsworth or addr in self.wads:
-                    print(f"Forwarding pulse to {addr}")
-                    try:
-                        c.sendall(payload)
-                    except Exception as e:
-                        print(f"Error sending pulse to {addr}: {e}")
+        ip, _ = connection.getpeername()
+        print(f"{ip}: pulsed with: {payload.hex()}")
+        try:   
+            self.send_delay_by_dist(ip, payload)
+        except Exception as e:
+            print(f"Error sending pulse to {ip}: {e}")
 
     def handle_pir_triggered(self, connection, payload):
         # Placeholder for handling PIR triggered messages
         ip, _ = connection.getpeername()
         print(f"{ip}: PIR triggered with payload: {payload}")
-        print("TODO: send to rest of garden with approp delays")
+        self.send_delay_by_dist(ip, payload)
 
+    def send_delay_by_dist(self, src_ip, payload):
+        # start by building a list of targets with their associated delays
+        # delayed are calculated by distance
+        targets = []
         with self.lock:
-            # forward pir signal to all connections
-            for peer, c in self.connections.items():
-                addr, port = peer
-                if addr == ip:
+            mac = self.ip_to_mac.get(src_ip)
+            if mac is None:
+                print(f"Can't send pulse from {src_ip}. No coordinates for {mac}")
+                return
+            
+        with self.lock:
+            my_coords = self.conf.get_coords(mac)
+            for peer, connection in self.connections.items():
+                addr, _ = peer
+                if addr == src_ip: # or addr not in {**self.wadsworth, **self.wads}:
                     continue
-                if addr in self.wadsworth or addr in self.wads:
-                    print(f"Forwarding pulse to {addr}")
-                    try:
-                        c.sendall(payload)
-                    except Exception as e:
-                        print(f"Error sending pulse to {addr}: {e}")
+
+                r_mac = self.ip_to_mac.get(addr)
+                r_coords = self.conf.get_coords(r_mac)
+
+                if r_coords is None:
+                    print(f"Can't send pulse to {addr}. Missing coordinates for {r_mac}")
+                    continue
+
+                dist = (my_coords['X'] - r_coords['X'])**2 + (my_coords['Y'] - r_coords['Y'])**2
+                dist = math.sqrt(dist) 
+                delay = int(dist * 100) # Assume 100ms per unit distance
+                print(f"Source coordinates: {my_coords}, Target coordinates: {r_coords}")
+                print(f"Distance: {dist}, Delay: {delay}ms")
+
+                targets.append((addr, connection, delay))
+
+        # The delayed send is implemented by starting a thread that sleeps 
+        # until the delay is over
+        def sleep_send(conn, addr, delay):
+            time.sleep(delay / 1000.0)  # Convert milliseconds to seconds
+            print(f"Send delayed pulse to {addr}")
+            conn.sendall(payload)
+
+        for addr, connection, delay in targets:
+            #print(f"Scheduling delayed pulse to {addr} with delay {delay}ms")
+            # Start a new thread for each target
+            threading.Thread(target=sleep_send, 
+                    args=(connection, addr, delay), daemon=True).start()
+ 
+    def send_one_delayed(self, connection, payload, sender_coords, receiver_coords):
+        with self.lock:
+            try:
+                # Calculate distance and delay
+                dist = (sender_coords[0] - receiver_coords[0])**2 + (sender_coords[1] - receiver_coords[1])**2
+                delay = int(dist * 100)  # Assume 100ms per unit distance
+
+                # Adjust for time offset
+                current = int(time.time() * 1000)
+                delay += current - self.t_offsets[connection.getpeername()[0]]
+
+                print(f"Sending delayed pulse to {connection.getpeername()[0]} with delay {delay}ms")
+
+                # Construct payload with delay
+                delayed_payload = (
+                    PROTO_PULSE.to_bytes(2, byteorder="big") +
+                    PROTO_VERSION.to_bytes(2, byteorder="big") +
+                    len(payload).to_bytes(2, byteorder="big") +
+                    delay.to_bytes(4, byteorder="big") +
+                    payload
+                )
+
+                # Send the payload
+                connection.sendall(delayed_payload)
+            except Exception as e:
+                print(f"Error sending delayed pulse to {connection.getpeername()[0]}: {e}")
+
+    def send_state_update(self):
+        pat = self.state.pattern
+        score = self.state.score / self.active_wads if self.active_wads > 0 else 0
+        payload = build_state_update(pat, int(score))
+
+        print(f"Broadcasting state update message: {pat} {score}")
+        self.broadcast(None, build_message(PROTO_STATE_UPDATE, payload))
 
 def handle_client(csock, addr, garden):
     print(f"Connection from {addr}")
