@@ -94,7 +94,7 @@ void strip_t::on_trigger(uint16_t led, uint16_t percent, uint32_t duration) {
     }
     if(k < num_leds) {
       CRGB color = rainbow.get(k, brightness);
-      layer_colored_glow.set(j, color, 250);
+      layer_colored_glow.set(k, color, 250);
     }
   }
 
@@ -104,14 +104,20 @@ void strip_t::on_trigger(uint16_t led, uint16_t percent, uint32_t duration) {
   if(percent > 60) {
     if(!triggered[led]) {
       tracer_sens.trigger(led, percent - 59, duration);
-      // Make sure we can only trigger once
-      triggered[led] = true; 
+
+      // If this is one of the strips that is bent in half, launch a second 
+      // tracer in reverse to have full coverage
+      if(trigger_both_directions) {
+        // Setting t_last to 0 is a hack to make having two of these going in 
+        // opposite directions work, otherwise it would be throttled and ignored
+        tracer_sens.t_last = 0;
+        tracer_sens.trigger(led, percent - 59, duration, true);
+      }
+
+      // Make sure we can only have this tracer going once
+      triggered[led] = true;
     }
   }
-  //else if(percent < 10) {
-  //  // If the percent is low, we can trigger again
-  //  triggered[led] = false;
-  //}
 }
 
 void strip_t::on_trigger_cont(uint16_t led, uint16_t percent, uint32_t duration) {
@@ -121,8 +127,6 @@ void strip_t::on_trigger_cont(uint16_t led, uint16_t percent, uint32_t duration)
 void strip_t::on_trigger_off(uint16_t led, uint16_t percent, uint32_t duration) {
   triggered[led] = false; 
 }
-
-//void strip_t::on_pir() {}
 
 void strip_t::step(uint32_t global_ac) {
   uint32_t now = millis();
@@ -231,22 +235,13 @@ void strip_t::background_update(meta_state_t &state) {
     }
 }
 
-bool strip_t::near_mids(int lidx) {
-#if 0
-  for(int i=0; i<nsens; i++)
-    if(dist(lidx, sensors[i].location) < 5)
-      return true;
-#endif
-
-return false;
-}
-
 void strip_t::do_basic_ripples(uint16_t activity) {
   for(int i=0; i<n_rand_tracers; i++)
     tracers_rand[i].step(activity);
 
   // high activity increases fade
-  uint16_t fade = map(activity, 0, 100, 10, 30);
+  uint16_t fade = 10;
+  //uint16_t fade = map(activity, 0, 100, 10, 30);
   layer_tracers.fade(fade);
 }
 
@@ -256,6 +251,16 @@ void strip_t::do_high_energy_ripples(uint16_t activity) {
 
   uint16_t fade = map(activity, 0, 100, 10, 30);
   layer_tracers.fade(fade);
+}
+
+bool strip_t::near_mids(int lidx) {
+  #if 0
+    for(int i=0; i<nsens; i++)
+      if(dist(lidx, sensors[i].location) < 5)
+        return true;
+  #endif
+
+  return false;
 }
 
 void strip_t::find_mids() {

@@ -18,7 +18,7 @@ class State:
         self.pattern = 0
         self.active_indices = {}
 
-    def update(self, ip, index, score):
+    def update(self, ip, index, score, age):
         self.t_last_update = time.time()
         self.cleanup()
 
@@ -26,7 +26,7 @@ class State:
         self.score += score
         self.active_indices[ip] = self.t_last_update
 
-        print(f"{ip} updated global state with {score}. New global score={self.score}")
+        print(f"{ip} updated global state with {score} ({index}, {age}). New global score={self.score}")
         print(f"Active nodes: {self.active_indices}")
         
     def cleanup(self):
@@ -51,7 +51,7 @@ class State:
 
     def get_score(self):
         # scored in triggers per second over some sliding window?
-        return self.score
+        return len(self.active_indices) # * 1000 / (time.time() - self.t_last_update) if self.t_last_update > 0 else 0
 
 class Garden:
     def __init__(self):
@@ -129,14 +129,14 @@ class Garden:
                 print("Sending state update")
                 self.send_state_update()
 
-    def handle_sensor(self, connection, index, score):
+    def handle_sensor(self, connection, index, pct, age):
         ip, _ = connection.getpeername()
-        print(f"{ip}: sent us sensor data: {index}, {score}")
+        print(f"{ip}: sent us sensor data: {index}, {pct}, {age}")
 
         with self.lock:
             # Update the state with the sensor data
             # Need the lock since it's periodically cleaned in the other thread
-            self.state.update(ip, index, score)
+            self.state.update(ip, index, pct, age)
 
     def handle_ident(self, connection, payload):
         ip, port = connection.getpeername()
@@ -228,7 +228,7 @@ class Garden:
 
                 dist = (my_coords['X'] - r_coords['X'])**2 + (my_coords['Y'] - r_coords['Y'])**2
                 dist = math.sqrt(dist) 
-                delay = int(dist * 100) # Assume 100ms per unit distance
+                delay = int(dist * 50) # Assume 50ms per unit distance
                 print(f"Source coordinates: {my_coords}, Target coordinates: {r_coords}")
                 print(f"Distance: {dist}, Delay: {delay}ms")
 
@@ -238,7 +238,7 @@ class Garden:
         # until the delay is over
         def sleep_send(conn, addr, delay):
             time.sleep(delay / 1000.0)  # Convert milliseconds to seconds
-            print(f"Send delayed pulse to {addr}")
+            print(f"Sending delayed pulse to {addr}")
             conn.sendall(payload)
 
         for addr, connection, delay in targets:
@@ -258,7 +258,7 @@ class Garden:
                 current = int(time.time() * 1000)
                 delay += current - self.t_offsets[connection.getpeername()[0]]
 
-                print(f"Sending delayed pulse to {connection.getpeername()[0]} with delay {delay}ms")
+                # print(f"Sending delayed pulse to {connection.getpeername()[0]} with delay {delay}ms")
 
                 # Construct payload with delay
                 delayed_payload = (

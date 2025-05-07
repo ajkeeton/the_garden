@@ -27,9 +27,26 @@ def parse_header(buffer):
 
     return msg_type, version, length
 
+def parse_sensor_payload(payload):
+    if len(payload) < 8:
+        print(f"Invalid sensor payload: {payload}")
+        return None
+
+    index = int.from_bytes(payload[0:4], byteorder='big')
+    pct = int.from_bytes(payload[4:6], byteorder='big')
+    value = int.from_bytes(payload[6:10], byteorder='big')
+
+    print(f"Parsed sensor payload: index={index}, value={value}")
+    return index, pct, value
+
+
 def build_state_update(index, value):
     payload = (
         index.to_bytes(4, byteorder="big") +
         value.to_bytes(4, byteorder="big")
     )
-    return build_message(PROTO_STATE_UPDATE, payload)
+
+    print(f"Building state update message with index {index} and value {value}")
+    print(f"Payload: {payload.hex()}")
+
+    return payload

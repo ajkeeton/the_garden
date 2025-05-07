@@ -76,6 +76,38 @@ struct sensor_state_t {
     }
 };
 
+#define MAX_STRIP_SHARED_SENS 4
+struct sensor_to_led_map_t {
+    uint16_t strip[MAX_STRIP_SHARED_SENS];
+    uint16_t led[MAX_STRIP_SHARED_SENS];
+    uint16_t sens_index = 0;
+    int nshared = 0;
+
+    // Allow up to 4 strips to share a sensor, this way they can have unique 
+    // strips on multiple sides
+
+    sensor_to_led_map_t() {
+        init();
+    }
+
+    void init() {
+        nshared = 0;
+        for(int i=0; i<MAX_STRIP_SHARED_SENS; i++) {
+            strip[i] = 0;
+            led[i] = 0;
+        }
+    }
+
+    void add(uint16_t sidx, uint16_t s, uint16_t l) {
+        if(nshared >= MAX_STRIP_SHARED_SENS)
+            return;
+        sens_index = sidx;
+        strip[nshared] = s;
+        led[nshared] = l;
+        nshared++;
+    }
+};
+
 // Interface to all sensors
 struct sensors_t {
     sensor_state_t sensors[MAX_MUX_IN];
@@ -87,14 +119,15 @@ struct sensors_t {
     int sens_start = 0,
         sens_end = 0;
 
+    // Mapping of sensor to strip and LED index
+    // To keep it simple, just using an array it uints, where first 2 bytes is the strip, next 2 is the LED
+    //uint32_t map_strip_led[MAX_MUX_IN];
+    sensor_to_led_map_t sensor_to_led_map[MAX_MUX_IN];
+
     void (*on_trigger_start)(int, int, const sensor_state_t &) = NULL;
     void (*on_is_triggered)(int, int, const sensor_state_t &) = NULL;
     void (*on_trigger_off)(int, int, const sensor_state_t &) = NULL;
     void (*on_pir)(int) = NULL;
-
-    // Mapping of sensor to strip and LED index
-    // To keep it simple, just using an array it uints, where first 2 bytes is the strip, next 2 is the LED
-    uint32_t map_strip_led[MAX_MUX_IN];
 
     sensors_t();
     void init(int pin_start, int pin_end, 

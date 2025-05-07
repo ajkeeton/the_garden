@@ -143,7 +143,7 @@ def main():
         while True:
             send_mock(sock, 1)
             send_mock_pulse(sock)
-            send_mock_pir(sock)
+            #send_mock_pir(sock)
             time.sleep(1)
 
         print("Closing")

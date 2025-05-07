@@ -15,13 +15,13 @@ DEFINE_GRADIENT_PALETTE( remixed_Fuschia_7_gp ) {
 
 CRGBPalette16 palette_wave = Blue_Cyan_Yellow_gp;
 CRGBPalette16 palette_ripple_target = Coral_reef_gp; // OceanColors_p;
-CRGBPalette16 palette_ripple = Coral_reef_gp;
+CRGBPalette16 palette_ripple = Coral_reef_gp ;
 CRGBPalette16 palette_asc_blob = remixed_Fuschia_7_gp;
 
 //extern meta_state_t mstate;
 
 void setup_ripples_palette() {
-  return;
+return;
 
   uint8_t thishue = random8();
   palette_ripple_target = CRGBPalette16(CHSV(thishue+random8(32), 255, random8(128,255)),
@@ -91,13 +91,9 @@ void tracer_t::step() {
 
     brightness = scale8(brightness, fade);
 
-    //if(life > max_life)
-    //  exist = false;
-
     //if(brightness < 1) {
     if(life > max_life)
       exist = false;
-      return;
     //}
 }
 
@@ -125,7 +121,7 @@ void tracer_t::step(uint16_t activity) {
 
   if(!exist && random8() > 250)
     // first param controls how fast the brightness drops. Higher is longer
-    reset(random8(240,254), random(100,350), -1); // random8()&1 ? 1 : -1);
+    reset(random8(240,254), random(100,255), -1); // random8()&1 ? 1 : -1);
   
   if(exist)
     step();
@@ -194,7 +190,7 @@ void tracer_v2_pulse_t::step() {
           spread,
           t_update_delay);
       exist = false;
-      // Serial.printf("Sending pulse: %lu, %lu, %lu, %lu\n", color, fade, spread, t_update_delay);   
+      Serial.printf("Sending pulse: %lu, %lu, %lu, %lu\n", color, fade, spread, t_update_delay);   
       return;
     }
 

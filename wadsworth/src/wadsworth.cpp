@@ -14,6 +14,8 @@ CRGB _leds6[NUM_LEDS5];
 
 void wad_t::init() {
     strips[nstrips++].init(_leds1, NUM_LEDS1, true);
+    strips[nstrips-1].trigger_both_directions = true;
+
     // Args:
     // - First mux pin with a sensor
     // - Total sensors
@@ -26,14 +28,19 @@ void wad_t::init() {
             ::on_sens_trigger_off,
             ::on_pir);
 
-    sensors.add(0, 0, 140); // strip 0, sensor 0, mux pin 0, LED 140
-    sensors.add(1, 0, 90); // strip 0, sensor 1, mux pin 2, LED 90
-    sensors.add(2, 0, 230); // strip 0, sensor 2, mux pin 4, LED 230
-    sensors.add(3, 1, 128); // strip 1, mux pin 1, LED 128
-    sensors.add(4, 1, 195); // strip 1, mux pin 5, LED 195
+    sensors.add(0, 0, 45); // sensor on mux_pin 0, strip 0, LED 140
+    sensors.add(0, 1, 60); // same sensor on mux_pin 0, strip 1, LED 130
+    sensors.add(4, 0, 144/2); // mux_pin 7, strip 1, LED 120
+
+    //sensors.add(1, 0, 90); // strip 0, sensor 1, mux pin 2, LED 90
+    //sensors.add(2, 0, 230); // strip 0, sensor 2, mux pin 4, LED 230
+    //sensors.add(3, 1, 128); // strip 1, mux pin 1, LED 128
+    //sensors.add(4, 1, 195); // strip 1, mux pin 5, LED 195
     
     // PIR sensors get special treatment
+    #ifdef MUX_PIN_PIR
     sensors.add_pir(MUX_PIN_PIR);
+    #endif
 
     state.init(num_sensors);
 
@@ -41,7 +48,8 @@ void wad_t::init() {
     inputs[0] = sensor_state_t(0, 0, 140);
     mstate.num_sens = 1;
     #else
-    strips[nstrips++].init(_leds2, NUM_LEDS2, true);
+    strips[nstrips++].init(_leds2, NUM_LEDS2);
+
     strips[nstrips++].init(_leds3, NUM_LEDS3);
     strips[nstrips++].init(_leds4, NUM_LEDS4);
     strips[nstrips++].init(_leds5, NUM_LEDS5);
@@ -61,7 +69,7 @@ void wad_t::init() {
 
     FastLED.clear();
 
-    // For logging
+    // Each strip has an ID to distinguish them in log messages
     for(int i=0; i<num_strips(); i++) {
         strips[i].id = i;
     }
@@ -165,13 +173,13 @@ void wad_t::log_info() {
       //if(log_flags & LOG_STATE)
       state.log_info();
       //if(log_flags & LOG_SENSORS)
-      //sensors.log_info();
+      sensors.log_info();
       //if(log_flags & LOG_MUX)
       sensors.mux.log_info();
       //Serial.printf("LED update: %lums. LED calcs: %lums. Sensors: %lums. Loop 0 (WiFi etc): %lums. WiFi read: %lums\n", 
       //    bench_led_push.avg, bench_led_calcs.avg, bench_sensors.avg, bloop0.avg, bench_wifi.avg);
       //if(log_flags & LOG_STRIPS)
-      //strips[0].log_info();
+      strips[0].log_info();
       //for(int i=0; i<nstrips; i++) strips[i].log_info();
   }
 }

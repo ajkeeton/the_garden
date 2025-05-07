@@ -4,8 +4,9 @@ sensors_t::sensors_t() {
     mux.init();
 
     for(int i=0; i<MAX_MUX_IN; i++) {
-        map_strip_led[i] = 0; // strip 0, LED 0
+        //map_strip_led[i] = 0; // strip 0, LED 0
         pir_map[i] = false;
+        sensor_to_led_map[i].init();
     }
 }
 
@@ -15,7 +16,8 @@ void sensors_t::add(uint16_t sensor, uint16_t strip, uint16_t led) {
         return;
     }
 
-    map_strip_led[sensor] = ((uint32_t)(strip) << 16) | led;
+    //map_strip_led[sensor] = ((uint32_t)(strip) << 16) | led;
+    sensor_to_led_map[sensor].add(sensor, strip, led);
 }
 
 void sensors_t::add_pir(uint16_t mux_pin) {
@@ -49,24 +51,28 @@ void sensors_t::do_on_trigger_start(int i) {
     //Serial.printf("State on start: sensor %d: %lu, percent: %u\n", 
     //    i, sensors[i].value, sensors[i].percent());
 
-    int sidx = (map_strip_led[i] >> 16) & 0xFFFF; // Strip index
-    int lidx = map_strip_led[i] & 0xFFFF; // LED index
-    on_trigger_start(sidx, lidx, sensors[i]);
+    sensor_to_led_map_t &s = sensor_to_led_map[i];
+
+    for(int i=0; i<s.nshared; i++) {
+        Serial.printf("Trigger start: %d, %d: %u\n", s.strip[i], s.led[i], sensors[i].percent());
+        on_trigger_start(s.strip[i], s.led[i], sensors[s.sens_index]);
+    }
 }
 
 void sensors_t::do_is_triggered(int i) {
     //Serial.printf("State is triggered: %d: %lu > %lu percent: %u\n", 
     //    i, sensors[i].value, sensors[i].minmax.get_thold(), sensors[i].percent());
-
-    int sidx = (map_strip_led[i] >> 16) & 0xFFFF; // Strip index
-    int lidx = map_strip_led[i] & 0xFFFF; // LED index
-    on_is_triggered(sidx, lidx, sensors[i]);
+    sensor_to_led_map_t &s = sensor_to_led_map[i];
+    for(int i=0; i<s.nshared; i++) {
+        on_is_triggered(s.strip[i], s.led[i], sensors[s.sens_index]);
+    }
 }
 
 void sensors_t::do_on_trigger_off(int i) {
-    int sidx = (map_strip_led[i] >> 16) & 0xFFFF; // Strip index
-    int lidx = map_strip_led[i] & 0xFFFF; // LED index
-    on_trigger_off(sidx, lidx, sensors[i]);
+    sensor_to_led_map_t &s = sensor_to_led_map[i];
+    for(int i=0; i<s.nshared; i++) {
+        on_trigger_off(s.strip[i], s.led[i], sensors[s.sens_index]);
+    }
 }
 
 void sensors_t::next() {

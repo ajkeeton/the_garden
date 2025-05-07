@@ -292,7 +292,7 @@ struct meta_state_t {
     }
 
     void handle_remote_update(uint32_t idx, uint32_t score) {
-        Serial.println("Received updated garden state");
+        Serial.printf("Received updated garden state: %lu, %lu\n", idx, score);
         garden_score = score;
         garden_idx = idx;
     }
@@ -322,9 +322,10 @@ struct meta_state_t {
 
         bool pthrot = (millis() - t_last_pir_update < T_PIR_TIMEOUT);
 
-        Serial.printf("State: %s, score: %lu, garden state/index: %lu/%lu sens trig'd: %d/%d, Ohai: %d/%d/%d, Pending: %d/%d, White: %d/%d, Sleep: %d/%d\n",
+        Serial.printf("State: %s, score: %lu, pct act: %u, garden state/index: %lu/%lu sens trig'd: %d/%d, Ohai: %d/%d/%d, Pending: %d/%d, White: %d/%d, Sleep: %d/%d\n",
             statestr,
             score,
+            percent_active(),
             garden_score,
             garden_idx,
             count,

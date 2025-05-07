@@ -4,8 +4,9 @@
 //#include <SimpleMDNS.h>
 
 char ssid[] = "741-g";
-char pass[] = "kittenbrigade";
+char pass[] = "ilovekittens";
 const char *gardener = "10.0.0.78";
+//const char *gardener = "192.168.1.118";
 int port = 7777;
 
 void wifi_t::init(const char *n) {
@@ -107,15 +108,15 @@ bool wifi_t::recv() {
       send_ident();
       break;
     case PROTO_STATE_UPDATE:
-      Serial.println("Received state update");
+      // Serial.println("Received state update");
       queue_recv_state(payload, length);
       break;
     case PROTO_PULSE:
-      Serial.println("Received pulse");
+      // Serial.println("Received pulse");
       queue_recv_pulse(payload, length);
       break;
     case PROTO_PIR_TRIGGERED:
-      Serial.println("Received PIR triggered");
+      // Serial.println("Received PIR triggered");
       queue_recv_pir(payload, length);
       break;
     // The above are the only messages we should ever receive

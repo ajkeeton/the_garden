@@ -79,13 +79,13 @@ class ProtocolHandler:
         print(f"{ip}: Handling log message: {payload}")
 
     def handle_sensor(self, payload):
-        if len(payload) < 8:
+        if len(payload) < 10:
             print(f"Invalid sensor payload: {payload}")
             return
         
-        # Extract index (4 bytes) and value (4 bytes)
-        index = int.from_bytes(payload[0:4], byteorder='big')
-        value = int.from_bytes(payload[4:8], byteorder='big')
+        #print(f"sensor message: {payload.hex()}")
         
+        index, pct, val = parse_sensor_payload(payload)
+ 
         # Add additional logic to process the sensor data if needed
-        self.garden.handle_sensor(self.connection, index, value)
+        self.garden.handle_sensor(self.connection, index, pct, val)

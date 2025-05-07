@@ -162,7 +162,11 @@ struct strip_t {
     
     //climb_white_t white;
 
-    bool is_center = false; // The center spire gets special treatment
+    // The center spire gets special treatment
+    bool is_center = false;
+    // If we use one strip with the sensor in the middle, and want the trigger
+    // effect to go up and down, set this
+    bool trigger_both_directions = false;
 
     void init(CRGB *l, uint16_t nleds, bool is_ctr=false);
     void step(uint32_t global_activity);

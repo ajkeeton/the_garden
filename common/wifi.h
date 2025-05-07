@@ -35,29 +35,14 @@ struct __attribute__((__packed__)) msg_pulse_t {
         if (len < MSG_PULSE_SIZE)
             return;
 
-        t_wait =
-            (uint32_t(payload[0]) << 24) |
-            (uint32_t(payload[1]) << 16) |
-            (uint32_t(payload[2]) << 8) |
-             uint32_t(payload[3]);
+        const uint32_t *p32 = reinterpret_cast<const uint32_t *>(payload);
+        t_wait = ntohl(p32[0]);
+        color = ntohl(p32[1]);
 
-        color = 
-            (uint32_t(payload[4]) << 24) |
-            (uint32_t(payload[5]) << 16) |
-            (uint32_t(payload[6]) << 8) |
-             uint32_t(payload[7]);
-
-        fade = uint8_t(payload[8]);
-
-        spread = 
-             (uint16_t(payload[9]) << 8) |
-              uint16_t(payload[10]);
-
-        delay = 
-            (uint32_t(payload[11]) << 24) |
-            (uint32_t(payload[12]) << 16) |
-            (uint32_t(payload[13]) << 8) |
-             uint32_t(payload[14]);
+        const uint16_t *p16 = reinterpret_cast<const uint16_t *>(payload + 8);
+        fade = payload[8];
+        spread = ntohs(p16[1]);
+        delay = ntohl(p16[2]);
     }
     uint32_t min_size() {
         return MSG_PULSE_SIZE;
@@ -74,17 +59,16 @@ struct __attribute__((__packed__)) msg_state_t {
             return;
         }
 
-        state_idx = 
-            (uint32_t(payload[0]) << 24) |
-            (uint32_t(payload[1]) << 16) |
-            (uint32_t(payload[2]) << 8) |
-             uint32_t(payload[3]);
+        const uint32_t *p32 = reinterpret_cast<const uint32_t *>(payload);
+        state_idx = ntohl(p32[0]);
+        score = ntohl(p32[1]);
 
-        score = 
-            (uint32_t(payload[4]) << 24) |
-            (uint32_t(payload[5]) << 16) |
-            (uint32_t(payload[6]) << 8) |
-             uint32_t(payload[7]);
+        Serial.printf("State: %lu, %lu\n", state_idx, score);
+        Serial.print("Payload: ");
+        for (int i = 0; i < len; ++i) {
+            Serial.printf("%02X ", (unsigned char)payload[i]);
+        }
+        Serial.println();
     }
 
     uint32_t min_size() {
@@ -101,16 +85,11 @@ struct __attribute__((__packed__)) msg_pir_t {
     msg_pir_t(const char *payload, int len) {
         if (len < 2)
             return;
+            const uint32_t *p32 = reinterpret_cast<const uint32_t *>(payload);
+            t_wait = ntohl(p32[0]);
 
-        t_wait =
-            (uint32_t(payload[0]) << 24) |
-            (uint32_t(payload[1]) << 16) |
-            (uint32_t(payload[2]) << 8) |
-             uint32_t(payload[3]);
-
-        placeholder = 
-            (uint16_t(payload[4]) << 8) |
-             uint16_t(payload[5]);
+            const uint16_t *p16 = reinterpret_cast<const uint16_t *>(payload + 4);
+            placeholder = ntohs(p16[0]);
     }
 };
 
@@ -142,11 +121,16 @@ struct msg_t {
 
     // Sensor update message
     msg_t(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age) {
-        // TODO: build payload directly, not with snprintf
-        int l = snprintf(buf + PROTO_HEADER_SIZE, sizeof(buf) - PROTO_HEADER_SIZE, 
-            "%lu,%u,%lu", (uint32_t)strip << 16 | led, percent, age);
+        // The strip and led combined are used as an unique ID for the sensor
+        uint16_t *buf16 = reinterpret_cast<uint16_t *>(buf + PROTO_HEADER_SIZE);
+        buf16[0] = htons(strip);
+        buf16[1] = htons(led);
+        buf16[2] = htons(percent);
 
-        init_header(PROTO_SENSOR, l);
+        uint32_t *buf32 = reinterpret_cast<uint32_t *>(buf + PROTO_HEADER_SIZE + 6);
+        buf32[0] = htonl(age);
+
+        init_header(PROTO_SENSOR, 10);
     }
 
     // IDENT
@@ -173,7 +157,6 @@ struct msg_t {
         buf[3] = PROTO_VERSION & 0xFF;
         buf[4] = (pay_len >> 8) & 0xFF;
         buf[5] = pay_len & 0xFF;
-
         full_len = PROTO_HEADER_SIZE + pay_len;
     }
 

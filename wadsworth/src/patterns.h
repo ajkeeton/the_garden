@@ -57,11 +57,8 @@ struct tracer_v2_pulse_t {
            t_update_delay = 0;
 
   tracer_v2_pulse_t(
-      CRGB *l, uint16_t nl, uint16_t lidx, uint32_t score, uint32_t score_duration) {
-    //if(exist)
-      // let the last one finish first
-    //  return false;
-
+      CRGB *l, uint16_t nl, uint16_t lidx, uint32_t score, uint32_t score_duration, bool rev=false) {
+    reverse = rev;
     leds = l;
     num_leds = nl;
     pos = init_pos = lidx;
@@ -150,7 +147,7 @@ struct tracer_v2_t {
     }
   }
 
-  void trigger(uint16_t lidx, uint32_t score, uint32_t score_duration) {
+  void trigger(uint16_t lidx, uint32_t score, uint32_t score_duration, bool reverse=false) {
     if(nodes.size() > MAX_TRACER_PULSES)
       return;
 
@@ -161,7 +158,8 @@ struct tracer_v2_t {
 
     Serial.printf("starting pulse with: %lu, %u, %u\n", lidx, score, score_duration);
 
-    nodes.push_back(tracer_v2_pulse_t(leds, num_leds, lidx, score, score_duration));
+    nodes.push_back(tracer_v2_pulse_t(
+        leds, num_leds, lidx, score, score_duration, reverse));
   }
 
   // Currently

@@ -7,6 +7,9 @@
 #include "state.h"
 #include "common/wifi.h"
 
+// Milliseconds to wait before sending sensor updates
+#define T_REMOTE_SENSOR_UPDATE_DELAY 100
+
 extern mux_t mux;
 extern wifi_t wifi;
 
@@ -33,6 +36,8 @@ class wad_t {
 public:
     // Reads the mux and keeps track of sensor state
     sensors_t sensors;
+    // Throttles how often we send sensor updates
+    uint32_t t_last_sensor_update_sent = 0;
     // Global state
     meta_state_t state;
     // The LED strips
@@ -45,7 +50,7 @@ public:
                 bench_wifi;
 
     void log_info();
-    
+
     void next_core_0() {
         // XXX If sensors.next() is here, add locking for on_trigger
         //sensors.mux.next();
@@ -67,20 +72,32 @@ public:
 
     void on_sens_start(int strip, int led, const sensor_state_t &s) {
         state.on_trigger_start(s); // add score to globlal score
-        Serial.printf("wadsworth: pct: %u, duration: %u\n", s.percent(), s.age());
+        Serial.printf("wadsworth: trigger start: strip %d, pct: %u, duration: %u\n", strip, s.percent(), s.age());
         strips[strip].on_trigger(led, s.percent(), s.age());
         wifi.send_sensor_msg(strip, led, s.percent(), s.age());
     }
 
     void on_sens_cont(int strip, int led, const sensor_state_t &s) {
-        // XXX Pass/use gradient!
-        //state.on_still_triggered(s); // add score to globlal score
+        // XXX Pass/use gradient?
+
         strips[strip].on_trigger_cont(led, s.percent(), s.age());
+
+        uint32_t now = millis();
+        if(now - t_last_sensor_update_sent > T_REMOTE_SENSOR_UPDATE_DELAY) {
+            wifi.send_sensor_msg(strip, led, s.percent(), s.age());
+            t_last_sensor_update_sent =  now;
+        }
     }
 
     void on_sens_off(int strip, int led, const sensor_state_t &s) {
         state.on_trigger_off(); // add score to globlal score
         strips[strip].on_trigger_off(led, s.percent(), s.age());
+
+        uint32_t now = millis();
+        if(now - t_last_sensor_update_sent > T_REMOTE_SENSOR_UPDATE_DELAY) {
+            wifi.send_sensor_msg(strip, led, s.percent(), s.age());
+            t_last_sensor_update_sent = now;
+        }
     }
 
     void on_pir(int pir_idx) {
