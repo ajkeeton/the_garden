@@ -1,6 +1,9 @@
 #pragma once
 
 #define DEF_RIPPLE_BRIGHTNESS 255
+#define TRANS_TIMEOUT 10000
+
+#include <FastLED.h>
 
 struct rainbow_t {
   uint16_t nleds = 0;

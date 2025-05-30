@@ -45,7 +45,7 @@ class ProtocolHandler:
         if msg_type == PROTO_PING:
             self.handle_ping(payload)
         elif msg_type == PROTO_PONG:
-            print("Received PONG")
+            self.garden.handle_pong(self.connection, payload)
         elif msg_type == PROTO_LOG:
             self.handle_log(payload)
         elif msg_type == PROTO_STATE_UPDATE:

@@ -3,15 +3,10 @@
 #include <Wire.h>
 #include <stdint.h>
 
-//#define NO_LIMIT_SWITCH
 #define SENS_THOLD 300
 
-#define SHORT_RAILS
-#ifdef SHORT_RAILS
-#define DEFAULT_MAX_STEPS 6000
-#else
+#define DEFAULT_MAX_STEPS_SHORT 6000
 #define DEFAULT_MAX_STEPS 8500
-#endif
 
 #define DELAY_MIN 80 // in MICRO seconds
 #define DELAY_MAX 20000 // in MICRO seconds
@@ -42,38 +37,32 @@
 
 #else
 
-#define STEP_EN_1 15
-#define STEP_PULSE_1 14
-#define STEP_DIR_1 13
+#define STEP_EN_1 1//2
+#define STEP_PULSE_1 2//3
+#define STEP_DIR_1 3//4
 
-#define STEP_EN_2 12
-#define STEP_PULSE_2 11
-#define STEP_DIR_2 10
+#define STEP_EN_2 4
+#define STEP_PULSE_2 5
+#define STEP_DIR_2 6
  
-#define STEP_EN_3 9
+#define STEP_EN_3 7
 #define STEP_PULSE_3 8
-#define STEP_DIR_3 7
+#define STEP_DIR_3 9
 
 #endif
 
 /////////////////////////////////////////
 // Following values are for the *mux* pins
-//
-//#define LIMIT_SWITCH_LOW_1 15
-//#define LIMIT_SWITCH_LOW_2 14
-//#define LIMIT_SWITCH_LOW_3 13
-
-#define LIMIT_SWITCH_LOW_1 12
-#define LIMIT_SWITCH_LOW_2 11
-#define LIMIT_SWITCH_LOW_3 10
+#define LIMIT_SWITCH_LOW_1 0
+#define LIMIT_SWITCH_LOW_2 1
+#define LIMIT_SWITCH_LOW_3 2
 
 // Dip switches
-#define INPUT_SWITCH_0 15 
-#define INPUT_SWITCH_1 14
+#define INPUT_SWITCH_0 A1
+#define INPUT_SWITCH_1 A2
 
 // Sensors
-#define SENS_IN_1 13
-//#define SENS_IN_2 14
-//#define SENS_IN_3 13
+#define SENS_IN_1 4
+
 
 /////////////////////////////////////////

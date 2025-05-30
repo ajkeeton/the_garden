@@ -6,7 +6,7 @@
 
 #define STEP_LOG_DELAY 1000
 
-extern Mux_Read mux;
+extern mux_t mux;
 
 enum STEP_STATE {
   STEP_INIT,
@@ -46,7 +46,7 @@ struct step_settings_t {
            min_delay = DELAY_MIN,
            max_delay = DELAY_MAX,
            min_pos = 0,
-           max_pos = DEFAULT_MAX_STEPS;
+           max_pos = 0;
   float accel = 0.000005;
 };
 
@@ -174,6 +174,21 @@ public:
 
     limits.init(lsl);
     accel.init(dmin, dmax);
+  }
+
+  void set_short(bool short_rails = false) {
+    if(short_rails) {
+      settings_on_close.max_pos = DEFAULT_MAX_STEPS_SHORT;
+      settings_on_open.max_pos = DEFAULT_MAX_STEPS_SHORT;
+      settings_on_wiggle.max_pos = DEFAULT_MAX_STEPS_SHORT;
+      pos_end = DEFAULT_MAX_STEPS_SHORT;
+    }
+    else {
+      settings_on_close.max_pos = DEFAULT_MAX_STEPS;
+      settings_on_open.max_pos = DEFAULT_MAX_STEPS;
+      settings_on_wiggle.max_pos = DEFAULT_MAX_STEPS;
+      pos_end = DEFAULT_MAX_STEPS;
+    }
   }
 
   void set_backwards() {

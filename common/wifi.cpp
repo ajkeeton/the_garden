@@ -3,8 +3,8 @@
 #include "proto.h"
 //#include <SimpleMDNS.h>
 
-char ssid[] = "741-g";
-char pass[] = "ilovekittens";
+char ssid[] = "Shenanigans";
+char pass[] = "catscatscats";
 const char *gardener = "10.0.0.78";
 //const char *gardener = "192.168.1.118";
 int port = 7777;
@@ -22,24 +22,25 @@ void wifi_t::init() {
   if(WiFi.status() != WL_CONNECTED) {
     WiFi.begin(ssid, pass);
 
-    // Perform a WiFi scan
-    int nfound = WiFi.scanNetworks();
-    if(nfound < 0) {
-      Serial.println("WiFi scan failed");
-    } 
-    else if (!nfound ) {
-      Serial.println("No WiFi networks found. But this hasn't been reliable at all...");
-    } 
-    else {
-      Serial.printf("Found %d WiFi networks:\n", nfound);
-      for (int i = 0; i < nfound; ++i) {
-        Serial.printf("%d: %s (%d dBm)\n", i + 1, WiFi.SSID(i), WiFi.RSSI(i));
+    uint32_t now = millis();
+    if(now - t_last_scan > 30000) {
+      t_last_scan = now;
+      // Perform a WiFi scan
+      int nfound = WiFi.scanNetworks();
+      if(nfound < 0) {
+        Serial.println("WiFi scan failed");
+      } 
+      else if (!nfound ) {
+        Serial.println("No WiFi networks found. But this hasn't been reliable at all...");
+      } 
+      else {
+        Serial.printf("Found %d WiFi networks:\n", nfound);
+        for (int i = 0; i < nfound; ++i) {
+          Serial.printf("%d: %s (%d dBm)\n", i + 1, WiFi.SSID(i), WiFi.RSSI(i));
+        }
       }
     }
   }
-
-  // Disable Nagle's so we can send small packets sooner
-  client.setNoDelay(true); 
 
   //WiFi.setTimeout(100);
 }
@@ -135,11 +136,10 @@ bool wifi_t::recv() {
 
 void wifi_t::connect() {
   // No need to build up a queue if we're not connected
+
   uint32_t now = millis();
-
-  if(now - last_retry < 2500) 
+  if(now - last_retry < 2000) 
     return;
-
   last_retry = now;
 
   if (WiFi.status() != WL_CONNECTED) {
@@ -159,6 +159,9 @@ void wifi_t::connect() {
     Serial.println("Connect failed");
     return;
   }
+  
+  // Disable Nagle's so we can send small packets sooner
+  client.setNoDelay(true); 
   
   Serial.println("Success!");
 

@@ -1,7 +1,7 @@
 #include "common.h"
-#include "gradient_palettes.h"
-#include "common/wifi.h"
 #include "patterns.h"
+#include "gradient_palettes.h"
+#include "wifi.h"
 
 extern wifi_t wifi;
 

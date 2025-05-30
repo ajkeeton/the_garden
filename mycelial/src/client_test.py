@@ -58,9 +58,11 @@ def send_ident(sock, name, mac):
 def send_mock_sensor(sock):
     # Mock sensor message
     index = 42
+    percent = 42
     value = 100
     payload = (
         index.to_bytes(4, byteorder="big") +
+        percent.to_bytes(2, byteorder="big") +
         value.to_bytes(4, byteorder="big")
     )
     send_message(sock, PROTO_SENSOR, payload)
@@ -70,7 +72,7 @@ def send_mock_pulse(sock):
     color = 0xffffff
     fade = 100
     spread = 10
-    delay = 10
+    delay = 2
     payload = (
         wait.to_bytes(4, byteorder="big") +
         color.to_bytes(4, byteorder="big") +
@@ -141,11 +143,12 @@ def main():
         send_ident(sock, "wads", mac)
 
         while True:
-            send_mock(sock, 1)
+           # send_mock(sock, 1)
             send_mock_pulse(sock)
             #send_mock_pir(sock)
-            time.sleep(1)
-
+    
+            time.sleep(2)
+        time.sleep(1)
         print("Closing")
 
 if __name__ == "__main__":

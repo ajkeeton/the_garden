@@ -28,7 +28,7 @@ def parse_header(buffer):
     return msg_type, version, length
 
 def parse_sensor_payload(payload):
-    if len(payload) < 8:
+    if len(payload) < 10:
         print(f"Invalid sensor payload: {payload}")
         return None
 
@@ -36,9 +36,22 @@ def parse_sensor_payload(payload):
     pct = int.from_bytes(payload[4:6], byteorder='big')
     value = int.from_bytes(payload[6:10], byteorder='big')
 
-    print(f"Parsed sensor payload: index={index}, value={value}")
+    #print(f"Parsed sensor payload: index={index}, value={value}")
     return index, pct, value
 
+def parse_pulse_payload(payload):
+    if len(payload) < 12:
+        print(f"Invalid pulse payload: {payload}")
+        return None
+
+    wait = int.from_bytes(payload[0:4], byteorder='big')
+    color = int.from_bytes(payload[4:8], byteorder='big')
+    fade = int.from_bytes(payload[8:9], byteorder='big')
+    spread = int.from_bytes(payload[9:11], byteorder='big')
+    delay = int.from_bytes(payload[11:15], byteorder='big')
+
+    #print(f"Parsed pulse payload: wait={wait}, color={color}, fade={fade}, spread={spread}, delay={delay}")
+    return wait, color, fade, spread, delay
 
 def build_state_update(index, value):
     payload = (
@@ -47,6 +60,6 @@ def build_state_update(index, value):
     )
 
     print(f"Building state update message with index {index} and value {value}")
-    print(f"Payload: {payload.hex()}")
+    # print(f"Payload: {payload.hex()}")
 
     return payload

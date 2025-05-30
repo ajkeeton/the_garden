@@ -22,7 +22,6 @@
 #define MUX3 19
 #define MUX2 18
 #define MUX1 17
-
 #endif
 
 class mux_t {
@@ -30,8 +29,8 @@ public:
   int vals[16];
   int num_inputs = 16; // Number of inputs on the mux
   int idx = 0;
-  uint32_t last = micros(),
-           delay = 5; // microseconds to settle before next analogRead
+  uint32_t last = 0,
+           t_read_delay = 10; // microseconds to settle before next analogRead
 
   mux_t() {    
     pinMode(MUX_EN, OUTPUT);
@@ -68,15 +67,13 @@ public:
 
   void next() {
     uint32_t now = micros();
-    if(now - last < delay)
+    if(now - last < t_read_delay)
       return;
     last = now;
 
     vals[idx] = analogRead(MUX_IN1);
-
-    // Serial.printf("Mux %d: %d\n", idx, vals[idx]);
     
-    if(++idx >= num_inputs)
+    if(++idx >= 5)
       idx = 0;
 
     // Change address for next read
@@ -84,8 +81,8 @@ public:
   }
 
   bool read_switch(int pin) {
-    next();
-    return vals[pin] > 128;
+    //next();
+    return vals[pin] > 512;
   }
 
   uint32_t read_raw(int pin) {

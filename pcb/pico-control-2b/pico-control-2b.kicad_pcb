@@ -318,10 +318,10 @@
 		(uuid "0af871e7-80b0-4fa2-b874-2dc9e7dd0afb")
 		(at 150.55 110)
 		(descr "http://media.digikey.com/pdf/Data%20Sheets/Lite-On%20PDFs/LTST-C230KFKT_5-24-06.pdf")
-		(property "Reference" "R4"
+		(property "Reference" "SCL"
 			(at 0 0 90)
 			(layer "F.SilkS")
-			(uuid "56d28701-b6d8-4368-8753-36fcb53db257")
+			(uuid "5e9a43c6-ee95-4c1a-aeef-7c6e42754f29")
 			(effects
 				(font
 					(size 1 1)
@@ -333,7 +333,7 @@
 			(at 0 2.6 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "4f227fab-c904-4d68-928a-8645246bdab6")
+			(uuid "c2f1c0db-4145-499e-b4fd-f98ec0f96fbf")
 			(effects
 				(font
 					(size 1 1)
@@ -345,7 +345,7 @@
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "9dd009f8-22ed-4867-9dcf-ed94d5f037f8")
+			(uuid "db53886a-3881-4830-886b-80499ecfaa17")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -357,7 +357,7 @@
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "296bf630-f331-43a7-aba0-0bc9d6134ab5")
+			(uuid "71f1e7ae-4320-4451-a2c1-1bd3c75dee55")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1814,7 +1814,7 @@
 			(at 0 -3.85 0)
 			(layer "F.SilkS")
 			(hide yes)
-			(uuid "3ecb74c9-f493-46c7-b193-b04dffa012aa")
+			(uuid "d9630003-eeb8-45f4-bd1d-d42eaa58a630")
 			(effects
 				(font
 					(size 1 1)
@@ -1826,7 +1826,7 @@
 			(at 0 3.85 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "60fd6817-6f00-4cbf-8e92-5bb5f9b21d41")
+			(uuid "23068755-276c-441c-844f-f57a86044c26")
 			(effects
 				(font
 					(size 1 1)
@@ -1839,7 +1839,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "e02c67dd-03e8-4777-8389-57ff992fb14b")
+			(uuid "1a294d6d-cec3-4ac6-8ed7-86a92835a3a1")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -1852,7 +1852,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "db4ca66c-0b77-486e-b43c-bb3378d70a92")
+			(uuid "d3a45bd6-4a35-4449-a236-1813ad86d2a3")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2517,7 +2517,7 @@
 			(at 0 -3.85 0)
 			(layer "F.SilkS")
 			(hide yes)
-			(uuid "41c2e67f-0427-4864-a40c-e79c7835244e")
+			(uuid "0be21852-df99-49a1-b651-dd75e8f68b8a")
 			(effects
 				(font
 					(size 1 1)
@@ -2529,7 +2529,7 @@
 			(at 0 3.85 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "ebd945db-f647-4d8b-bc58-b6a71caffa2f")
+			(uuid "9dd441db-e159-4ae9-a1f3-bc8e4f6df19e")
 			(effects
 				(font
 					(size 1 1)
@@ -2542,7 +2542,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "01ecb90d-ce31-4d37-9be2-520577ca1e7d")
+			(uuid "ac74edbd-a556-4740-9e2a-6124b99f9d74")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2555,7 +2555,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "01b957ad-4a74-4fd6-b19a-1adb49e12b62")
+			(uuid "4701948d-366a-4a6d-9968-bf58c53d53c1")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3340,7 +3340,7 @@
 			(at 0 -3.85 0)
 			(layer "F.SilkS")
 			(hide yes)
-			(uuid "f2382eca-c2da-4152-a5f6-069d996baa1c")
+			(uuid "0a447e80-60fe-4816-a7c3-39da78246e56")
 			(effects
 				(font
 					(size 1 1)
@@ -3352,7 +3352,7 @@
 			(at 0 3.85 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "c7edc667-181a-479d-be49-6c5121077405")
+			(uuid "0b614a94-af3b-4c4b-bb98-27b33ce17d38")
 			(effects
 				(font
 					(size 1 1)
@@ -3365,7 +3365,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "71ffcadf-75c8-488c-8523-81588dc10ee0")
+			(uuid "184c95e6-1ae7-43bc-84c3-2315bddc7bc2")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -3378,7 +3378,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "97f924df-c557-448a-8c9a-f9d9f888c1f4")
+			(uuid "facc53fc-a1ad-46f7-ba72-ca9ab50c9c60")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4422,7 +4422,7 @@
 			(at 0 -3.85 0)
 			(layer "F.SilkS")
 			(hide yes)
-			(uuid "6a02c40a-c409-4172-bcf8-e35bb9ada045")
+			(uuid "bba8012e-e5c3-42cf-aaaa-b2ac4611a7ae")
 			(effects
 				(font
 					(size 1 1)
@@ -4434,7 +4434,7 @@
 			(at 0 3.85 0)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "037c7507-4775-4b2b-b61b-ff18f528bdf5")
+			(uuid "460abbf2-1ecd-4aca-abca-db279a17c9f8")
 			(effects
 				(font
 					(size 1 1)
@@ -4447,7 +4447,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "d8e03112-e45d-4166-81e3-308326cbc111")
+			(uuid "2e395943-1011-466a-b577-5f3167a0ed90")
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4460,7 +4460,7 @@
 			(unlocked yes)
 			(layer "F.Fab")
 			(hide yes)
-			(uuid "0883d843-b9c6-438e-bc3a-6be8683be8a6")
+			(uuid "2c31812c-53f1-44b3-baae-060c907dcc32")
 			(effects
 				(font
 					(size 1.27 1.27)

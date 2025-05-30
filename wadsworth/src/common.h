@@ -1,19 +1,16 @@
 #pragma once
 
 #define WADS_V2A_BOARD
-#include <FastLED.h>
 #include <map>
 #include "common/common.h"
 #include "common/mux.h"
-#include "patterns.h"
+#include "common/patterns.h"
 
 //#define TEST_WHITE_ONLY
 //#define FIND_SENS 1
 //#define LED_TEST 1
 
 #define LOG_TIMEOUT 500 // in ms
-
-#define TRANS_TIMEOUT 10000
 
 #define INIT_TRIG_THOLD 100 
 #define INIT_TRIG_MAX 700

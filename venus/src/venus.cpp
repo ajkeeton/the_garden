@@ -1,3 +1,5 @@
+#define WADS_V2A_BOARD
+
 #include "common/common.h"
 #include "common/wifi.h"
 #include "stepper.h"
@@ -7,8 +9,8 @@
 #warning IGNORING LIMIT SWITCH - ASSUMING 0 IS CORRECT
 #endif
 
-Mux_Read mux;
-Wifi wifi;
+mux_t mux;
+wifi_t wifi;
 leds_t leds;
 
 #if USE_PWM_DRIVER
@@ -68,12 +70,20 @@ void init_steppers() {
   steppers[1].settings_on_wiggle = ss;
   steppers[2].settings_on_wiggle = ss;
 
-  steppers[0].set_backwards();
-  steppers[1].set_backwards();
+  if(analogRead(INPUT_SWITCH_0) < 100) {
+    Serial.printf("Short rails selected\n");
+    // If dip 0 is set, use "short_rails"
 
-  #ifdef SHORT_RAILS
-  steppers[2].set_backwards();
-  #endif
+    steppers[0].set_short(true);
+    steppers[1].set_short(true);
+    steppers[2].set_short(true);
+  }
+  else if (analogRead(INPUT_SWITCH_1) < 100) {
+    // For limb C only!
+    Serial.printf("Pod C selected\n");
+    steppers[1].set_backwards();
+    steppers[2].set_backwards();
+  }
 
   #ifdef USE_PWM_DRIVER
 
@@ -91,11 +101,12 @@ void init_steppers() {
 }
 
 void init_mode() {
+  STEP_STATE mode = DEFAULT_MODE;
+  #if 0
   int i1 = mux.read_switch(INPUT_SWITCH_0);
   int i2 = mux.read_switch(INPUT_SWITCH_1);
   int i3 = 0; //int i3 = mux.read_switch(INPUT_SWITCH_2);
 
-  STEP_STATE mode = DEFAULT_MODE;
 
   Serial.print("Setting mode to: ");
 
@@ -122,6 +133,7 @@ void init_mode() {
       Serial.printf("default (%d)\n", mode);
       break;
   };
+  #endif
 
   for(int i=0; i<NUM_STEPPERS; i++) {
     steppers[i].choose_next(mode); // necessary to initialize targets, speeds, etc
@@ -131,8 +143,8 @@ void init_mode() {
 void wait_serial() {
   uint32_t now = millis();
 
-  // Wait up to 5 seconds for serial
-  while(!Serial && millis() - now < 5000) {
+  // Wait up to 2 seconds for serial
+  while(!Serial && millis() - now < 2000) {
     delay(100);
   }  
 }
@@ -159,13 +171,18 @@ void setup1() {
   Serial.println("Starting...");
 
   mux.init();
+  mux.num_inputs = 6;
   init_steppers();
   init_mode();
+  leds.init();
 }
 
 void setup() {
+  pinMode(A0, INPUT);
+  pinMode(A1, INPUT);
+  pinMode(A2, INPUT);
+
   wait_serial();
-  leds.init();
   wifi.init("venus");
 }
 
@@ -200,25 +217,21 @@ void log_inputs() {
 
   if(now - last < 750)
     return;
-
   last = now;
 
-  Serial.printf("Mux:");
-
-  for(int i=0; i<16; i++)
-    Serial.printf("\t%d", mux.read_raw(i));
-
-  Serial.println();
+  mux.log_info();
 }
 
 void loop1() {
   blink();
   // benchmark();
   mux.next();
-  log_inputs();
 
-  // Check if sensors triggered
+  log_inputs();
+  
+  // Check if sensors override triggered
   uint32_t sens = mux.read_raw(SENS_IN_1);
+  // XXX Now on A1 I think...  
 
   static uint32_t last = 0;
   uint32_t now = millis();
@@ -232,14 +245,14 @@ void loop1() {
       for(int i=0; i<NUM_STEPPERS; i++) {
         steppers[i].trigger_close();
       } 
-      //delay(1000);
   }
 
   for(int i=0; i<NUM_STEPPERS; i++)
     steppers[i].run();
+  
+  leds.step();
 }
 
 void loop() {
-  leds.step();
-  wifi.run();
+  wifi.next();
 }
