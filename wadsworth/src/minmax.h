@@ -7,15 +7,11 @@
 #define MIN_STD_DEV_FOR_TRIGGER 75 // Used to determine threshold
 #define T_CALC_STD 1000
 
-struct min_max_extra_t {
-
-};
-
 struct min_max_range_t {
     uint32_t 
         avg = 0,
         avg_min = INIT_TRIG_THOLD, 
-        avg_max = INIT_TRIG_MAX;
+        avg_max = MAX_MAX_AVG;
 
     float window[N_MOVING_AVG];
     uint32_t t_last_update_window = 0;

@@ -153,7 +153,7 @@ struct meta_state_t {
              score = 0,
              count = 0,
              garden_score = 0,
-             garden_idx = 0;
+             pattern_idx = 0;
 
     bool in_pulse = false;
     uint32_t t_pulse = 0;
@@ -294,7 +294,9 @@ struct meta_state_t {
     void handle_remote_update(uint32_t idx, uint32_t score) {
         Serial.printf("Received updated garden state: %lu, %lu\n", idx, score);
         garden_score = score;
-        garden_idx = idx;
+        pattern_idx = idx;
+
+        // XXX Need to do some kind of transition when the pattern changes
     }
 
     void log_info() {
@@ -322,12 +324,12 @@ struct meta_state_t {
 
         bool pthrot = (millis() - t_last_pir_update < T_PIR_TIMEOUT);
 
-        Serial.printf("State: %s, score: %lu, pct act: %u, garden state/index: %lu/%lu sens trig'd: %d/%d, Ohai: %d/%d/%d, Pending: %d/%d, White: %d/%d, Sleep: %d/%d\n",
+        Serial.printf("State: %s, score: %lu, pct act: %u, garden state/pattern: %lu/%lu sens trig'd: %d/%d, Ohai: %d/%d/%d, Pending: %d/%d, White: %d/%d, Sleep: %d/%d\n",
             statestr,
             score,
             percent_active(),
             garden_score,
-            garden_idx,
+            pattern_idx,
             count,
             num_sens,
             ohai.is_triggered(), ohai.score, pthrot,

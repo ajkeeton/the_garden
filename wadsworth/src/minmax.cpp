@@ -3,7 +3,7 @@
 #include "wadsworth.h"
 
 uint32_t min_max_range_t::get_max() const {
-  return 1024; // XXX avg_max;
+  return MAX_MAX_AVG; 
 }
 
 uint32_t min_max_range_t::get_min() const{
@@ -16,9 +16,13 @@ uint32_t min_max_range_t::get_thold() const {
     //return (avg_max - avg_min) + MIN_STD_DEV_FOR_TRIGGER;
   //return (avg_max - avg_min) + std_dev;
 
+  // XXX Review - I like the idea of using the standard div, but maybe 10% is good enough
+  #if 0
   if(std_dev < MIN_STD_DEV_FOR_TRIGGER)
     return pseudo_avg + MIN_STD_DEV_FOR_TRIGGER;
   return pseudo_avg + std_dev;
+  #endif
+  return avg_min + (avg_max - avg_min) * .05;
 }
 
 void min_max_range_t::decay() {
@@ -69,8 +73,8 @@ void min_max_range_t::update(uint16_t val) {
 
   if(val < avg_min) {
     // Aprox moving average for min
-    new_min_avg = avg_min*109 + val;
-    new_min_avg /= 200;
+    new_min_avg = avg_min*299 + val;
+    new_min_avg /= 300;
   }
   else {
     if(now - last_decay_min > TRIG_DECAY_DELTA_MIN) {
@@ -88,7 +92,9 @@ void min_max_range_t::update(uint16_t val) {
   else {
     if(now - last_decay_max > TRIG_DECAY_DELTA_MAX) {
       last_decay_max = now;
-      if(spread > TRIG_SPREAD_MIN)
+      //if(spread > TRIG_SPREAD_MIN)
+      //  new_max_avg--;
+      if(new_max_avg > MAX_MAX_AVG)
         new_max_avg--;
     }
   }
@@ -115,6 +121,6 @@ void min_max_range_t::update(uint16_t val) {
 
 void min_max_range_t::log_info() {
   Serial.printf("Avg: %lu | Pseudo Avg: %.3f | Std dev: %.3f "
-      "| Min: %lu | Max: %lu | Thold: %lu\n", 
+      "| Min Avg: %lu | Max Avg: %lu | Thold: %lu\n", 
       avg, pseudo_avg, std_dev, avg_min, avg_max, get_thold());
 }

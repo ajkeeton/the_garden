@@ -144,7 +144,7 @@ void sensors_t::log_info() {
         sensors[i].minmax.get_max(), 
         sensors[i].minmax.get_thold());
     #endif
-    int i = 0;
+    int i = 4;
     Serial.printf("Sensor %d: value: %u, percent: %u, age: %.03fs\n", 
         i, sensors[i].value, sensors[i].percent(), (float)(sensors[i].age())/1000);
     sensors[i].minmax.log_info();

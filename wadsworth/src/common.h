@@ -15,10 +15,11 @@
 
 #define TRANS_TIMEOUT 10000
 
-#define INIT_TRIG_THOLD 180 
-#define INIT_TRIG_MAX 600
-#define TRIG_SPREAD_MIN 175
-#define TRIG_DECAY_DELTA_MIN 50 // ms
+#define INIT_TRIG_THOLD 100 
+#define INIT_TRIG_MAX 700
+#define MAX_MAX_AVG 700 // Determined by 12v with my voltage dividers 
+#define TRIG_SPREAD_MIN 250
+#define TRIG_DECAY_DELTA_MIN 150 // ms
 #define TRIG_DECAY_DELTA_MAX 500 // ms
 #define MIN_TRIG_FOR_STATE_CHANGE 2
 #define STATE_FALL_TIMEOUT 60000 // this many ms inactive and we transition down

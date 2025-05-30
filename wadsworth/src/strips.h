@@ -174,7 +174,6 @@ struct strip_t {
     void on_trigger(uint16_t led, uint16_t score, uint32_t duration);
     void on_trigger_cont(uint16_t led, uint16_t score, uint32_t duration);
     void on_trigger_off(uint16_t led, uint16_t percent, uint32_t duration);
-    //void on_pir();
     void background_update(meta_state_t &state);
 
     void find_mids();
@@ -187,6 +186,7 @@ struct strip_t {
 
     // Gardener told us to start a pulse
     void handle_remote_pulse(uint32_t color, uint8_t fade, uint16_t spread, uint32_t delay);
+    void handle_remote_state_change(uint16_t pat);
 
     // Force all LEDs white, skip the layers. Mostly for debugging
     void force_white();

@@ -50,16 +50,6 @@ void strip_t::init(CRGB *l, uint16_t nleds, bool is_ctr) {
   for(int i=0; i<num_leds; i++) {
     triggered[i] = false;
   }
-  /*
-  if(tracers_sens_map) {
-    // If tracers_sens_map is already allocated, delete it
-    delete []tracers_sens_map;
-  }
-  tracers_sens_map = new uint8_t[num_leds];
-  for(int i=0; i<num_leds; i++) {
-    tracers_sens_map[i] = 0; // Point all LEDs to the first sensor tracer for now
-  }
-  */
 
   tracer_sens.init(layer_tracers.targets, nleds);
   reverse_pulse.init(layer_tracers.targets, nleds);
@@ -198,7 +188,7 @@ void strip_t::background_update(meta_state_t &state) {
   tracer_sens.step();
   reverse_pulse.step();
 
-  switch(pattern) {
+  switch(state.pattern_idx) {
     case 0:
       //if(is_center)
         blobs.step(global_activity);

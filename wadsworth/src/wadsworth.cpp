@@ -14,7 +14,9 @@ CRGB _leds6[NUM_LEDS5];
 
 void wad_t::init() {
     strips[nstrips++].init(_leds1, NUM_LEDS1, true);
-    strips[nstrips-1].trigger_both_directions = true;
+
+    // XXX
+    // strips[nstrips-1].trigger_both_directions = true;
 
     // Args:
     // - First mux pin with a sensor
@@ -28,9 +30,12 @@ void wad_t::init() {
             ::on_sens_trigger_off,
             ::on_pir);
 
-    sensors.add(0, 0, 45); // sensor on mux_pin 0, strip 0, LED 140
-    sensors.add(0, 1, 60); // same sensor on mux_pin 0, strip 1, LED 130
-    sensors.add(4, 0, 144/2); // mux_pin 7, strip 1, LED 120
+    sensors.add(0, 0, 144/2); // sensor on mux_pin 0, strip 0, LED 140
+    sensors.add(0, 1, 144/2); // same sensor on mux_pin 0, strip 1, LED 130
+    sensors.add(7, 0, 144/2); //
+    sensors.add(7, 1, 144/2); //
+
+   // sensors.add(4, 0, 144/2); // mux_pin 7, strip 1, LED 120
 
     //sensors.add(1, 0, 90); // strip 0, sensor 1, mux pin 2, LED 90
     //sensors.add(2, 0, 230); // strip 0, sensor 2, mux pin 4, LED 230
@@ -45,7 +50,7 @@ void wad_t::init() {
     state.init(num_sensors);
 
     #ifdef LITTLE_WAD // XXX use dipswitch instead?
-    inputs[0] = sensor_state_t(0, 0, 140);
+    inputs[0] = sensor_state_t(4, 0, 144/2);
     mstate.num_sens = 1;
     #else
     strips[nstrips++].init(_leds2, NUM_LEDS2);
@@ -123,7 +128,7 @@ void wad_t::next_core_1() {
   if(wifi.recv_pop(msg)) {
       switch(msg.type) {
           case PROTO_PULSE:
-              Serial.printf("Handling pulse message! %lu, %u, %u, %lu \n",
+              Serial.printf("Handling pulse message! color: %lu, fade: %u, spread: %u, delay: %lu\n",
                   msg.pulse.color, msg.pulse.fade, msg.pulse.spread, msg.pulse.delay);
               for(int i=0; i<nstrips; i++) {
                   strips[i].handle_remote_pulse(
@@ -134,7 +139,9 @@ void wad_t::next_core_1() {
               }
               break;
           case PROTO_STATE_UPDATE:
-              state.handle_remote_update(msg.state.state_idx, msg.state.score);
+              
+              // XXX There might not be reason to track the pattern_idx in the state
+              state.handle_remote_update(msg.state.pattern_idx, msg.state.score);
               break;
           case PROTO_PIR_TRIGGERED:
               Serial.printf("Handling remote PIR message! %u\n", msg.pir.placeholder);
@@ -169,17 +176,19 @@ void wad_t::next_core_1() {
 }
 
 void wad_t::log_info() {
-  EVERY_N_MILLISECONDS(1000) {
+  EVERY_N_MILLISECONDS(500) {
       //if(log_flags & LOG_STATE)
-      state.log_info();
+      //state.log_info();
       //if(log_flags & LOG_SENSORS)
-      sensors.log_info();
+      //sensors.log_info();
       //if(log_flags & LOG_MUX)
+      
       sensors.mux.log_info();
       //Serial.printf("LED update: %lums. LED calcs: %lums. Sensors: %lums. Loop 0 (WiFi etc): %lums. WiFi read: %lums\n", 
       //    bench_led_push.avg, bench_led_calcs.avg, bench_sensors.avg, bloop0.avg, bench_wifi.avg);
+      
       //if(log_flags & LOG_STRIPS)
-      strips[0].log_info();
+      //strips[0].log_info();
       //for(int i=0; i<nstrips; i++) strips[i].log_info();
   }
 }

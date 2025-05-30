@@ -110,7 +110,7 @@ struct tracer_v2_pulse_t {
     exist = true;
     reverse = true;
 
-    Serial.printf("Remote tracer starting (color: %u, fade: %u, spread: %lu, d: %lu)\n", c, f, s, d);
+    //Serial.printf("Remote tracer starting (color: %u, fade: %u, spread: %lu, d: %lu)\n", c, f, s, d);
     //Serial.println("jk"); exist=false;
   }
 
@@ -148,15 +148,16 @@ struct tracer_v2_t {
   }
 
   void trigger(uint16_t lidx, uint32_t score, uint32_t score_duration, bool reverse=false) {
-    if(nodes.size() > MAX_TRACER_PULSES)
+    if(nodes.size() > MAX_TRACER_PULSES) {
       return;
+    }
 
     uint32_t now = millis();
     if(now - t_last < T_THROTTLE_MS)
       return;
     t_last = now;
 
-    Serial.printf("starting pulse with: %lu, %u, %u\n", lidx, score, score_duration);
+    //Serial.printf("starting pulse with: %lu, %u, %u\n", lidx, score, score_duration);
 
     nodes.push_back(tracer_v2_pulse_t(
         leds, num_leds, lidx, score, score_duration, reverse));
@@ -165,14 +166,17 @@ struct tracer_v2_t {
   // Currently
   // Only called for reverse tracers
   void trigger(uint32_t c, uint8_t f, uint16_t s, uint32_t d) {
-   if(nodes.size() > MAX_TRACER_PULSES)
+    if(nodes.size() > MAX_TRACER_PULSES) {
+      Serial.printf("Too many tracers, ignoring\n");
       return;
+    }
+
     uint32_t now = millis();
     if(now - t_last < T_THROTTLE_MS)
       return;
     t_last = now;
 
-    Serial.printf("starting reverse pulse with: %lu, %u, %u, %lu\n", c, f, s, d);
+    // Serial.printf("starting reverse pulse with: %lu, %u, %u, %lu\n", c, f, s, d);
 
     nodes.push_back(tracer_v2_pulse_t(leds, num_leds, c, f, s, d));
   }
