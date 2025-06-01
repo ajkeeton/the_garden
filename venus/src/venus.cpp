@@ -250,6 +250,8 @@ void loop1() {
   for(int i=0; i<NUM_STEPPERS; i++)
     steppers[i].run();
   
+  // Move cores?
+  leds.background_update();
   leds.step();
 }
 

@@ -37,9 +37,9 @@
 
 #else
 
-#define STEP_EN_1 1//2
-#define STEP_PULSE_1 2//3
-#define STEP_DIR_1 3//4
+#define STEP_EN_1 1
+#define STEP_PULSE_1 2
+#define STEP_DIR_1 3
 
 #define STEP_EN_2 4
 #define STEP_PULSE_2 5
