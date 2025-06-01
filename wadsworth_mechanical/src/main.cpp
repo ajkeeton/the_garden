@@ -1,23 +1,152 @@
-#include "Actuator/Actuator.h"
 #include <Arduino.h>
+#include <FastLED.h>
+#include "actuator.h"
+#include "common/common.h"
+#include "common/mux.h"
+#include "common/wifi.h"
 
-// Pin definitions
-const int PWM1 = 0;
-const int DIR1 = 1;
-const int DIR2 = 2;
+#define IN_BUTTON A2
+#define IN_DIP A1
 
-const int PWM2 = 3;
-const int DIR3 = 6;
-const int DIR4 = 7;
+const int PIN_PWM1 = 1;
+const int PIN_DIR1 = 2;
+const int PIN_DIR2 = 3;
 
-// const int STICK1 = A0;
-// const int STICK2 = A1;
-const int STOP_MAIN_PIN = A0;
-const int STOP_SECONDARY_PIN = A1;
-
-char printBuffer[40];
+const int PIN_PWM2 = 4;
+const int PIN_DIR3 = 5;
+const int PIN_DIR4 = 6;
 
 // Setup global for actuators, initialized in setup()
+actuator_t primary, secondary;
+mux_t mux;
+wifi_t wifi;
+
+void wait_for_serial() {
+    // Wait a couple seconds for  Serial to be ready
+    while (!Serial && millis() < 2000) {
+        delay(50);
+    }
+}
+
+void setup() {
+    Serial.begin(9600);
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    blink();
+
+    wifi.init();
+    wait_for_serial();
+}
+
+void setup1()
+{    
+    mux.init();
+    mux.n_avg = 5;
+    pinMode(IN_BUTTON, INPUT_PULLUP);
+    pinMode(IN_DIP, INPUT_PULLUP);
+
+    // Initialize hardware
+    analogWriteFreq(1024);
+
+    primary.init("Primary", DEF_MUX_PIN_POT_1, DEF_MUX_PIN_LIMIT_1, PIN_PWM1, PIN_DIR1, PIN_DIR2);
+    secondary.init("Secondary", DEF_MUX_PIN_POT_2, DEF_MUX_PIN_LIMIT_2, PIN_PWM2, PIN_DIR3, PIN_DIR4);
+
+    wait_for_serial();
+
+    if(analogRead(IN_DIP) < 512) {
+        Serial.println("DIP switch is ON, doing test cycle");
+
+        primary.init_test_cycle(); 
+        secondary.init_test_cycle();
+    }
+    else {
+        primary.init_wakeup();
+        secondary.init_wakeup();
+    }
+
+    Serial.println("Starting...");
+}
+
+void loop() {
+    wifi.next();
+}
+
+// XXX 
+// There must have been a compiler bug, having these as statics inside
+// is_button_pressed() caused a mutex to not release in the wifi code
+bool last = HIGH;
+bool logged_once = false;
+uint32_t t_last_press = 0;
+
+bool is_button_pressed() {
+    bool current = analogRead(IN_BUTTON) < 512 ? LOW : HIGH;
+ 
+    uint32_t now = millis();
+
+    if (current != last) {
+        t_last_press = now;
+    }
+
+    last = current;
+
+    if ((now - t_last_press) > 30 && current == LOW) {
+        if(!logged_once) {
+            logged_once = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    logged_once = false;
+    return false;
+}
+
+void loop1() {
+    static int last_state = 0;
+
+    // Blink the built-in LED to indicate activity
+    blink();
+    mux.next();
+
+    if(is_button_pressed()) {
+        primary.handle_button();
+        secondary.handle_button();
+        Serial.println("Button pressed");
+    }
+
+    recv_msg_t msg;
+    int loop_counter = 0;
+    while(wifi.recv_pop(msg)) {
+        switch(msg.type) {
+            case PROTO_PULSE:
+                Serial.printf("The gardener told us to pulse the LEDs: %u %u %u %u\n", 
+                    msg.pulse.color, msg.pulse.fade, msg.pulse.spread, msg.pulse.delay);
+                break;
+            case PROTO_STATE_UPDATE:
+                Serial.printf("A state update message: %u %u\n", 
+                        msg.state.pattern_idx, msg.state.score);
+                last_state = msg.state.pattern_idx;
+                break;
+            case PROTO_PIR_TRIGGERED:
+                Serial.println("A PIR sensor was triggered");
+                break;
+            default:
+                Serial.printf("Unknown message type: %u\n", msg.type);
+        }
+    }
+
+    //primary.step();
+    secondary.step();
+    
+    primary.log_periodic();
+    secondary.log_periodic();
+}
+
+#if 0
+#define STOP_MAIN_PIN A2
+#define STOP_SECONDARY_PIN A1
+
 Actuator* actuator_main = nullptr;
 Actuator* actuator_secondary = nullptr;
 
@@ -40,13 +169,15 @@ void on_secondary_limit(Actuator* actuator);
 
 void setup()
 {
+        Serial.begin(9600);
+
     // Initialize hardware
     analogWriteFreq(1024);
 
     pinMode(PWM1, OUTPUT);
+    pinMode(PWM2, OUTPUT);
     pinMode(DIR1, OUTPUT);
     pinMode(DIR2, OUTPUT);
-    pinMode(PWM2, OUTPUT);
     pinMode(DIR3, OUTPUT);
     pinMode(DIR4, OUTPUT);
     pinMode(STOP_MAIN_PIN, INPUT);
@@ -54,11 +185,10 @@ void setup()
 
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(DIR1, 0);
-    digitalWrite(DIR2, 0);
+    digitalWrite(DIR2, 1);
     digitalWrite(DIR3, 0);
-    digitalWrite(DIR4, 0);
+    digitalWrite(DIR4, 1);
 
-    Serial.begin(9600);
     delay(100);
 
     // Initialize Actuators
@@ -74,7 +204,7 @@ void setup()
     // Reset actuators to starting bottom position
     actuator_main->move_down(150);
     actuator_secondary->move_down(150);
-    delay(7000);
+    delay(5000);
     actuator_main->stop();
     actuator_secondary->stop();
 
@@ -86,6 +216,7 @@ void setup()
     main_state_change_time = millis();
     secondary_state_change_time = millis();
 }
+
 
 /** Callback functions **/
 void on_main_complete(Actuator* actuator)
@@ -170,6 +301,8 @@ void cycle(int speed, int duration, Actuator* actuator, CycleState& cycle_state,
 
 void loop()
 {
+    blink();
+
     // Update each actuator (checks limits, handles timing)
     actuator_main->update();
     actuator_secondary->update();
@@ -177,3 +310,4 @@ void loop()
     cycle(200, 5000, actuator_main, main_cycle_state, main_state_change_time);
     cycle(200, 3000, actuator_secondary, secondary_cycle_state, secondary_state_change_time);
 }
+#endif

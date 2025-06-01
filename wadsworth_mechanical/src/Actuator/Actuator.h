@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 
+#if 0
 enum ActuatorState { IDLE, ACTUATOR_UP, ACTUATOR_DOWN };
 
 class Actuator {
@@ -44,3 +45,4 @@ public:
 
 extern Actuator* actuator_main;
 extern Actuator* actuator_secondary;
+#endif

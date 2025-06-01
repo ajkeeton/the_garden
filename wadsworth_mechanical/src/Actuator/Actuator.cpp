@@ -1,3 +1,4 @@
+#if 0
 #include "Actuator/Actuator.h"
 #include <Arduino.h>
 #include <iostream>
@@ -129,3 +130,4 @@ void Actuator::reset(int speed, unsigned long reset_duration_ms)
     movement_start_time = millis();
     movement_duration = reset_duration_ms;
 }
+#endif
