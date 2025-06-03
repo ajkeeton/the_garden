@@ -3,9 +3,10 @@
 
 // It would be nice if this were over time, not total samples, but keeping it 
 // simple for now
-#define N_MOVING_AVG 50
+#define N_MOVING_AVG 10
 #define MIN_STD_DEV_FOR_TRIGGER 75 // Used to determine threshold
 #define T_CALC_STD 1000
+#define MIN_THOLD 80 // Needed for noisy floating pins (even though there's a pulldown)
 
 struct min_max_range_t {
     uint32_t 

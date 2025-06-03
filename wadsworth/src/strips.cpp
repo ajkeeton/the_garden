@@ -71,7 +71,14 @@ void strip_t::init(CRGB *l, uint16_t nleds, bool is_ctr) {
 
 void strip_t::on_trigger(uint16_t led, uint16_t percent, uint32_t duration) {
   // Trigger a steady glow and a pulse at the sensor
-  uint16_t spread = map(percent, 0, 100, 0, 60);//num_leds/10);
+  uint16_t spread = map(percent, 0, 100, 0, num_leds * 0.3);
+
+  if(spread > 100)
+    spread = 100;
+
+  //if(percent) 
+  //  Serial.printf("strip_t::on_trigger led: %u, percent: %u, duration: %u, spread: %u\n", 
+  //    led, percent, duration, spread);
 
   for(int i=0; i<spread; i++) {
     int j = led - i;

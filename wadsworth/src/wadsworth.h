@@ -8,7 +8,7 @@
 #include "common/wifi.h"
 
 // Milliseconds to wait before sending sensor updates
-#define T_REMOTE_SENSOR_UPDATE_DELAY 100
+// #define T_REMOTE_SENSOR_UPDATE_DELAY 100
 
 extern mux_t mux;
 extern wifi_t wifi;
@@ -43,6 +43,7 @@ public:
     // The LED strips
     strip_t strips[MAX_STRIPS];
     int nstrips = 0;
+    bool wadsworth_is_full = false;
 
     benchmark_t bench_led_push, 
                 bench_led_calcs,
@@ -74,30 +75,16 @@ public:
         state.on_trigger_start(s); // add score to globlal score
         Serial.printf("wadsworth: trigger start: strip %d, pct: %u, duration: %u\n", strip, s.percent(), s.age());
         strips[strip].on_trigger(led, s.percent(), s.age());
-        wifi.send_sensor_msg(strip, led, s.percent(), s.age());
     }
 
     void on_sens_cont(int strip, int led, const sensor_state_t &s) {
         // XXX Pass/use gradient?
-
         strips[strip].on_trigger_cont(led, s.percent(), s.age());
-
-        uint32_t now = millis();
-        if(now - t_last_sensor_update_sent > T_REMOTE_SENSOR_UPDATE_DELAY) {
-            wifi.send_sensor_msg(strip, led, s.percent(), s.age());
-            t_last_sensor_update_sent =  now;
-        }
     }
 
     void on_sens_off(int strip, int led, const sensor_state_t &s) {
         state.on_trigger_off(); // add score to globlal score
         strips[strip].on_trigger_off(led, s.percent(), s.age());
-
-        uint32_t now = millis();
-        if(now - t_last_sensor_update_sent > T_REMOTE_SENSOR_UPDATE_DELAY) {
-            wifi.send_sensor_msg(strip, led, s.percent(), s.age());
-            t_last_sensor_update_sent = now;
-        }
     }
 
     void on_pir(int pir_idx) {
@@ -111,7 +98,10 @@ public:
         wifi.send_pir_triggered(pir_idx);
     }
 
-    void init();
+    void init(bool full_wadsworth=false);
+    void init_full();
+    void init_deco();
+
     void strips_next();
 };
 

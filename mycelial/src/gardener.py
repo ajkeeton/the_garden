@@ -5,43 +5,105 @@ import time
 from proto import *
 
 DEF_CONF = "config.yaml"
-STATE_TIMEOUT = 5
+TIMEOUT_STATE_UPDATE = 10
+TIMEOUT_FORCED_STATE_UPDATE_MESSAGE = 30
+TIMEOUT_BROADCAST_PING = 20
+TIMEOUT_DAYTIME_DETECTION = 10 
+MIN_DAYTIME_THOLD = 500 # average raw values over this are considered daytime
 
 class State:
     def __init__(self):
         self.t_last_update = 0
         self.updates = []
-        self.raw_score = 0
+        self.avg_raw_garden_score = 0
         self.pattern = 0
         self.t_last_pattern_change = 0
-        self.active_indices = {}
+        self.sensors = {}
+        self.active_sensors = {}
+        self.score = 0
         self.lock = threading.Lock()
 
-    def update_sensor(self, ip, index, score, age):
+        self.daytime = False
+        self.t_start_sun_detection = 0  # Start time for sun detection
+
+    def update_sensor(self, ip, index, raw):
         self.t_last_update = time.time()
-        self.raw_score += score
+
+        if raw < 1:
+            return
 
         with self.lock:
-            self.updates += [(ip, score, self.t_last_update)]
-            self.active_indices[ip] = self.t_last_update
+            self.updates += [(ip, raw, self.t_last_update)]
 
-        print(f"{ip} updated global state with {score} ({index}, {age}). New global raw score={self.raw_score}")
-        print(f"Active nodes: {self.active_indices}")
-    
+            if ip not in self.sensors:
+                self.sensors[ip] = {}
+            self.sensors[ip][index] = raw
+
+        # XXX Future: only do this calc periodically
+        self.calc_raw()
+
+        #print(f"{ip} updated global state with {raw} ({index}). New global raw score={self.avg_raw_garden_score}")
+         #print(f"Sensors: {self.sensors}")
+
+        if self.avg_raw_garden_score > MIN_DAYTIME_THOLD:
+            if not self.daytime:
+                if not self.t_start_sun_detection:
+                    self.t_start_sun_detection = time.time()
+                return
+
+            if self.t_start_sun_detection and (time.time() - self.t_start_sun_detection > TIMEOUT_DAYTIME_DETECTION):
+                self.set_daytime()
+        else:
+            if self.daytime:
+                if not self.t_start_sun_detection:
+                    self.t_start_sun_detection = time.time()
+                elif (time.time() - self.t_start_sun_detection > TIMEOUT_DAYTIME_DETECTION):
+                    self.clear_daytime()
+            else:
+                self.t_start_sun_detection = 0  # Reset timer if already not daytime
+
+    def set_daytime(self):
+        if self.pattern != 0:
+            self.t_last_pattern_change = time.time()
+            self.pattern = 0
+        if not self.daytime:
+            print(f"Setting daytime mode. Raw score: {self.avg_raw_garden_score}")
+            self.daytime = True 
+            self.t_start_sun_detection = 0
+
+    def clear_daytime(self):
+        print(f"Clearing daytime mode. Raw score: {self.avg_raw_garden_score}")
+
+        self.daytime = False
+        self.t_start_sun_detection = 0
+
+    def calc_raw(self):
+        """Calculate the raw score based on the current updates."""
+        self.avg_raw_garden_score = 0
+        count = 0
+        for sensor_dict in self.sensors.values():
+            for raw in sensor_dict.values():
+                self.avg_raw_garden_score += raw
+                count += 1
+        self.avg_raw_garden_score /= count if count else 1  # Avoid division by zero
+
     def update_pulse(self, ip):
         self.t_last_update = time.time()
-        self.raw_score += 1
 
         # keep track of who pulsed us, and the last time we received it
         with self.lock:
             self.updates += [(ip, 1, self.t_last_update)]
-            self.active_indices[ip] = self.t_last_update
+            self.active_sensors[ip] = self.t_last_update
 
-        print(f"{ip} pulsed us. Active: {len(self.active_indices)}")
+        print(f"{ip} pulsed us. Active: {len(self.active_sensors)}")
 
-        if self.raw_score > 2:
-            self.pattern = 1
-            
+        # XXX Future: only do this calc periodically
+        self.calc_score()
+
+    def calc_score(self):
+        """Calculate the score based on active sensors"""
+        self.score = len(self.active_sensors) / len(self.sensors) if len(self.sensors) > 0 else 0
+
     def cleanup(self):
         i = 0
         tnow = time.time()
@@ -49,30 +111,28 @@ class State:
             with self.lock:
                 ip, score, last = self.updates[i]
 
-            # d = tnow - STATE_TIMEOUT
             #print(f"Checking update {i}: {self.updates[i]}. f{d > last}")
 
             # Remove old updates and subtract from score
-            if tnow - STATE_TIMEOUT < last:
+            if tnow - TIMEOUT_STATE_UPDATE < last:
                 break
 
-            print(f"Removing old update {i}: {self.updates[i]}")
-            self.raw_score -= score
+            # print(f"Removing old update {i}: {self.updates[i]}")
+
             # the same node may have been active more recently
             # the active_indices value always reflects most recent
             with self.lock:
-                if ip in self.active_indices and self.active_indices[ip] == last:
+                if ip in self.active_sensors and self.active_sensors[ip] == last:
                     print(f"Marking {ip} inactive")
-                    del self.active_indices[ip]
+                    del self.active_sensors[ip]
                 self.updates.pop(i)
             i += 1
-
-        if self.raw_score < 2:
-            self.pattern = 0
+        
+        self.calc_score()
 
     def get_score(self):
         # scored in triggers per second over some sliding window?
-        return len(self.active_indices) # * 1000 / (time.time() - self.t_last_update) if self.t_last_update > 0 else 0
+        return len(self.active_sensors) # * 1000 / (time.time() - self.t_last_update) if self.t_last_update > 0 else 0
 
 class Garden:
     def __init__(self):
@@ -81,6 +141,7 @@ class Garden:
         self.ip_to_mac = {}
         self.t_offsets = {} # map of time offsets for each connection
         self.last_score = -1 # used so we don't send the same score twice
+        self.last_pat = 0
         self.lock = threading.Lock()
 
         self.wadsworth = {}
@@ -91,6 +152,8 @@ class Garden:
         self.state = State()
         self.conf = Config(DEF_CONF)
         self.ping_timeout = 60 # Timeout in seconds for stale connections
+
+        self.t_start_sun_detection = 0
 
     def wads_active(self):
         with self.lock:
@@ -151,6 +214,7 @@ class Garden:
                 if addr == ignore_me:# or addr not in {**self.wadsworth, **self.wads}:
                     continue
                 try:
+                    print("ending message to", addr)
                     conn.sendall(message)
                     # print(f"Sent message to {addr}")
                 except Exception as e:
@@ -160,46 +224,57 @@ class Garden:
         last_ping = 0
         last_state_update = time.time()
 
+        force_state_update = False
+        last_forced_state_update = time.time()
+
         while True:
             now = time.time()
 
             # Send periodic pings
-            if now - last_ping > 10:
+            if now - last_ping > TIMEOUT_BROADCAST_PING:
                 last_ping = now
-                # print("Broadcasting ping to all clients...")
+                #print("Broadcasting ping to all clients...")
                 self.broadcast(None, build_message(PROTO_PING, b"server ping"))
                 self.log_state()
 
             # Clean up stale connections
             self.cleanup_stale_connections()
 
+            # Force a state update every 10 seconds in case anyone new has joined
+            if now - last_forced_state_update > TIMEOUT_FORCED_STATE_UPDATE_MESSAGE:
+                force_state_update = True
+                last_forced_state_update = now
+
             # Send state updates
             if now - last_state_update > 1:
-                self.send_state_update()
+                self.send_state_update(force_state_update)
                 last_state_update = now
+                force_state_update = False
 
             time.sleep(0.05)  # Sleep to avoid busy waiting
 
     def log_state(self):
-        print(f"Current state of {self.wads_active()}:")
-        print(f"- Score: {self.state.get_score()}, Active: {len(self.state.active_indices)}, Raw: {self.state.raw_score}")
-
+        print(f"Active: {self.wads_active()}:")
+        print(f"- Pattern: {self.state.pattern}, Score: {self.state.get_score():.2f}, Active: {len(self.state.active_sensors)}, Raw: {self.state.avg_raw_garden_score:.2f}")
         with self.lock:
             print("- Wadsworth:", list(self.wadsworth.keys()))
             print("- Wads:", self.wads.keys())
             print("- Venus:", self.venus.keys())
             print("- Squishies:", self.squish.keys())
 
-    def handle_sensor(self, connection, index, pct, age):
+    def handle_sensor(self, connection, index, pct, raw):
         # ignoring for now, just relying on pulses
-        return
-
+        # TODO: all sensors should be batched together in a single message
+        
         ip, _ = connection.getpeername()
-        print(f"{ip}: sent us sensor data: {index}, {pct}, {age}")
+        print(f"{ip}: sent us sensor data: {index}, {pct}, {raw}")
 
         # Update the state with the sensor data
         # Need the lock since it's periodically cleaned in the other thread
-        self.state.update_sensor(ip, index, pct, age)
+        #self.state.update_sensor(ip, index, pct, age)
+
+        # keep track of average raw value for all wads
+        self.state.update_sensor(ip, index, raw)
 
     def handle_ident(self, connection, payload):
         ip, port = connection.getpeername()
@@ -225,7 +300,7 @@ class Garden:
             self.t_offsets[ip] = t - int(millis)
 
             if mac not in self.ip_to_mac.values():
-                print(f"Ident from: {ip}:{port}, millis: {millis}. It's a {name}")
+                print(f"Ident from: {ip}:{port}, millis: {millis}. It's a {name}. MAC: {mac}")
             
             self.ip_to_mac[ip] = mac
 
@@ -270,6 +345,17 @@ class Garden:
         print(f"{ip}: PIR triggered with payload: {payload}")
         self.send_delay_by_dist(ip, payload)
 
+    def handle_sleepy_time_override(self, connection):
+        """Handle a sleepy time override message."""
+        ip, _ = connection.getpeername()
+        print(f"{ip}: Received sleepy time override message")
+        
+        # Set the state to daytime
+        self.state.set_daytime()
+
+        # Broadcast the sleepy time message to all connections
+        self.broadcast(None, build_message(PROTO_SLEEPY_TIME, b""))
+        
     def send_delay_by_dist(self, src_ip, payload):
         # start by building a list of targets with their associated delays
         # delayed are calculated by distance
@@ -349,7 +435,11 @@ class Garden:
         except Exception as e:
             print(f"Error sending delayed pulse to {connection.getpeername()[0]}: {e}")
 
-    def send_state_update(self):
+    def send_state_update(self, force=False):
+        if force and self.state.daytime:
+            self.broadcast(None, build_message(PROTO_SLEEPY_TIME, b""))
+            return
+
         pat = self.state.pattern
         act = self.wads_active()
         score = self.state.get_score() / act if act > 0 else 0
@@ -357,12 +447,13 @@ class Garden:
 
         self.state.cleanup()
 
-        if score == self.last_score:
+        if not force and score == self.last_score and self.last_pat == pat:
+            #print(f"Skipping state update, score {score} and pat {pat} have no changed")
             return
 
         self.last_score = score
 
         payload = build_state_update(pat, int(score))
 
-        print(f"Broadcasting state update message: Pattern: {pat} Score: {score} (Raw score {self.state.raw_score} out of {act})")
+        print(f"Broadcasting state update message: Pattern: {pat} Score: {score} (Raw score {self.state.avg_raw_garden_score} out of {act})")
         self.broadcast(None, build_message(PROTO_STATE_UPDATE, payload))

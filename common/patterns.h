@@ -351,7 +351,7 @@ struct blobs_t {
     for(int i=0; i<n; i++)
       leds[i] = CRGB::Black;
 
-    // One blob every 144 leds
+    // One blob min every 144 leds
     num_blobs = min(n / 144 + 1, sizeof(blobs)/sizeof(blobs[0]));
 
     for(int i=0; i<num_blobs; i++) {
@@ -485,4 +485,109 @@ struct climb_white_t {
   void step(uint16_t activity);
   bool do_transition();
   // bool in_trans();
+};
+
+
+struct layer_t {
+    CRGB *targets = NULL;
+    // XXX switch to millis/elapsed
+    uint16_t *ttl = NULL;
+    bool use_ttl = false; 
+    uint16_t num_leds = 0;
+    uint32_t last_update = 0;
+
+    // n: number of LEDs
+    // us: use time-to-live
+    void init(uint16_t n, bool us) {
+        use_ttl = us;
+
+        if(targets)
+            delete []targets;
+        targets = new CRGB[n];
+
+        if(use_ttl) {
+            if(ttl)
+                delete []ttl;
+            ttl = new uint16_t[n];
+        }
+
+        num_leds = n;
+
+        for(int i=0; i<num_leds; i++) {
+            targets[i] = CRGB::Black;
+            if(use_ttl)
+                ttl[i] = 0;
+        }
+    }
+  
+    #if 0
+    void step(uint16_t activity) {
+        // convert into a delay of 5 to 21
+        uint32_t delta = (100 - activity) / 6 + 5;
+        uint32_t now = millis();
+        if(now - last_update < delta)
+            return;
+        last_update = now;
+
+        fadeToBlackBy(leds, num_leds, 5+activity);
+    }
+    #endif
+    
+    void blur(uint8_t blur_amount) {
+        blur1d(targets, num_leds, blur_amount);
+    }
+
+    void set(uint16_t led, CRGB color, uint16_t lifespan) {
+        if(led >= num_leds)
+            return;
+
+        targets[led] = color;
+        ttl[led] = lifespan;
+    }
+
+    void blend(CRGB &tgt, uint16_t idx, uint8_t blend_amount=10) {
+        if(use_ttl) {
+            if(!ttl[idx]) {
+                targets[idx] = CRGB::Black;
+                #warning should this be a return? does blending black darken or is it nop?
+                return;
+            }
+            else
+                ttl[idx]--;
+        }
+
+        //if(targets[idx] == CRGB::Black)
+        //    return;
+        
+        nblend(tgt, targets[idx], blend_amount);
+    }
+
+    #if 1
+    void blend_additive(CRGB &tgt, uint16_t idx, uint8_t blend_amount=10) {
+        #warning  dig into the best way to do this
+        // XXX rgb2hsv_approximate doesn't appear to work
+
+        // blend the huess but add the values
+        CHSV dst = rgb2hsv_approximate(tgt);
+        CHSV src = rgb2hsv_approximate(targets[idx]);
+
+        //dst.hue = (dst.hue + src.hue)/2;
+        //if((uint16_t)dst.value + (uint16_t)src.value > 255)
+        //    dst.value = 255;
+        //else
+        //    dst.value += src.value;
+
+        tgt = dst;
+    }
+    #endif
+
+    void blend_color() {
+    }
+
+    void overwrite_color() {
+    }
+
+    void fade(uint8_t fade_amount) {
+        fadeToBlackBy(targets, num_leds, fade_amount);
+    }
 };

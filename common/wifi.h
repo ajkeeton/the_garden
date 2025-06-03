@@ -28,6 +28,8 @@ struct recv_msg_t {
     }; 
 
     recv_msg_t() {}
+    recv_msg_t(uint16_t t) : type(t) {}
+    // For the sleepy time message
     recv_msg_t(const msg_pulse_t &p) : type(PROTO_PULSE), pulse(p) {}
     recv_msg_t(const msg_state_t &s) : type(PROTO_STATE_UPDATE), state(s) {}
     recv_msg_t(const msg_pir_t &s) : type(PROTO_PIR_TRIGGERED), pir(s) {}
@@ -128,6 +130,14 @@ private:
         msg_pir_t pir(payload, len);
         mutex_enter_blocking(&mtx);
         msgq_recv.push(recv_msg_t(pir));
+        mutex_exit(&mtx);
+    }
+
+    void queue_recv_sleepy_time() {
+        // This is a signal to the garden to go into a low power state
+        // We don't do anything here, just stop the connection
+        mutex_enter_blocking(&mtx);
+        msgq_recv.push(recv_msg_t(PROTO_SLEEPY_TIME));
         mutex_exit(&mtx);
     }
 };

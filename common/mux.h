@@ -8,20 +8,20 @@
 // THUS:
 //  In order for this wrapper to work you have to continuously call next()
 
-#ifdef WADS_V2A_BOARD
-#define MUX_IN1 A0
-#define MUX_EN 18
-#define MUX4 22
-#define MUX3 21
-#define MUX2 20
-#define MUX1 19
-#else
+#ifdef WADS_V1_BOARD
 #define MUX_IN1 A2
 #define MUX_EN 22
 #define MUX4 20
 #define MUX3 19
 #define MUX2 18
 #define MUX1 17
+#else
+#define MUX_IN1 A0
+#define MUX_EN 18
+#define MUX4 22
+#define MUX3 21
+#define MUX2 20
+#define MUX1 19
 #endif
 
 class mux_t {
@@ -30,7 +30,9 @@ public:
   int num_inputs = 16; // Number of inputs on the mux
   int idx = 0;
   uint32_t last = 0,
-           t_read_delay = 10; // microseconds to settle before next analogRead
+           t_read_delay = 20; // microseconds to settle before next analogRead
+
+  int n_avg = 0;
 
   mux_t() {    
     pinMode(MUX_EN, OUTPUT);
@@ -71,8 +73,15 @@ public:
       return;
     last = now;
 
-    vals[idx] = analogRead(MUX_IN1);
-    
+    uint16_t raw = analogRead(MUX_IN1);
+    if(n_avg > 0) {
+      // Aprox average the readings
+      vals[idx] = (vals[idx] * n_avg + raw) / (n_avg + 1);
+    } else {
+      vals[idx] = raw;
+    }
+
+
     if(++idx >= 5)
       idx = 0;
 
@@ -86,6 +95,11 @@ public:
   }
 
   uint32_t read_raw(int pin) {
+    if(pin < 0 || pin >= 16) {
+      Serial.printf("\nXXX\nmux_t::read_raw: Invalid pin %d\nXXX\n", pin);
+      return 0;
+    }
+
     return vals[pin];
   }
 

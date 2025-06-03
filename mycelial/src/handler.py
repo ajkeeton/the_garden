@@ -60,6 +60,8 @@ class ProtocolHandler:
             # Placeholder for handling PIR triggered messages
             #index = int.from_bytes(payload[0:4], byteorder='big')
             self.garden.handle_pir_triggered(self.connection, full_msg)
+        elif msg_type == PROTO_SLEEPY_TIME:
+            self.garden.handle_sleepy_time_override(self.connection)
         else:
             # Placeholder for other message types
             print(f"Received message - Type: {msg_type}, Version: {version}, Payload: {payload}")

@@ -91,17 +91,39 @@ void loop1() {
   wads.next_core_1();
 }
 
+void wait_serial() {
+  uint32_t now = millis();
+  // Wait up to 2 seconds for serial to be ready, otherwise just move on...
+  while(!Serial && (millis() - now < 2000)) { 
+    blink();
+    delay(50);
+  }
+}
+
 void setup1() {
   pinMode(IN_BUTTON, INPUT_PULLUP);
   pinMode(IN_DIP, INPUT_PULLUP);
 
-  if(analogRead(IN_DIP) < 100) {
-    // I'm a decorative wad
-  }
-
   while(!ready_core_0) {}
 
-  wads.init();
+  // For some reason this needs to be called for both cores?!
+  // Otherwise, even with the check for ready_core_0, we just sail right on 
+  // without serial ready
+  wait_serial(); 
+
+  bool full_wadsworth = false;
+  if(analogRead(IN_DIP) < 512) {
+    full_wadsworth = true;
+    Serial.println("Full Wadsworth enabled by DIP");
+  }
+
+  #ifdef THE_REAL_WADSWORTH
+  full_wadsworth = true;
+  Serial.println("Full Wadsworth hardcoded on");
+  #endif
+
+  wads.init(full_wadsworth);
+
   Serial.println("Wadsworth'ing...");
 }
 
@@ -110,10 +132,7 @@ void setup() {
 
   Serial.begin(9600);
 
-  uint32_t now = millis();
-  // Wait up to 2 seconds for serial to be ready, otherwise just move on...
-  while(!Serial && (millis() - now < 2000)) { }
-  delay(250);
+  wait_serial();
 
   wifi.init("wadsworth");
   ready_core_0 = true;

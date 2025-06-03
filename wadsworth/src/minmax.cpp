@@ -16,13 +16,15 @@ uint32_t min_max_range_t::get_thold() const {
     //return (avg_max - avg_min) + MIN_STD_DEV_FOR_TRIGGER;
   //return (avg_max - avg_min) + std_dev;
 
-  // XXX Review - I like the idea of using the standard div, but maybe 10% is good enough
+  // XXX Review - I like the idea of using the standard div, but maybe a harcoded pct is good enough
   #if 0
   if(std_dev < MIN_STD_DEV_FOR_TRIGGER)
     return pseudo_avg + MIN_STD_DEV_FOR_TRIGGER;
   return pseudo_avg + std_dev;
   #endif
-  return avg_min + (avg_max - avg_min) * .05;
+
+  uint32_t thold = avg_min + (avg_max - avg_min) * .075;
+  return thold < MIN_THOLD ? MIN_THOLD : thold;
 }
 
 void min_max_range_t::decay() {

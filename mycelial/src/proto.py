@@ -7,7 +7,9 @@ PROTO_STATE_UPDATE = 5
 PROTO_PULSE = 6
 PROTO_IDENT = 7
 PROTO_PIR_TRIGGERED = 8
-
+PROTO_SLEEPY_TIME = 9
+PROTO_OVERRIDE_STATE = 10 # tell the gardener what state we're in, mostly for one-off control scripts
+PROTO_FORCE_SLEEP = 11
 PROTO_VERSION=1
 
 def build_message(msg_type, payload):
@@ -17,7 +19,9 @@ def build_message(msg_type, payload):
         PROTO_VERSION.to_bytes(2, byteorder="big") +
         length.to_bytes(2, byteorder="big") +
         payload
-    )    
+    )
+
+    print(message)
     return message
 
 def parse_header(buffer):

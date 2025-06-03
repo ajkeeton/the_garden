@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef GRADIENT_PALETTES_H
 #define GRADIENT_PALETTES_H
 

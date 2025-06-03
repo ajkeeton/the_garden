@@ -112,13 +112,20 @@ bool wifi_t::recv() {
       // Serial.println("Received state update");
       queue_recv_state(payload, length);
       break;
-    case PROTO_PULSE:
+    case PROTO_PULSE: 
       // Serial.println("Received pulse");
       queue_recv_pulse(payload, length);
       break;
     case PROTO_PIR_TRIGGERED:
       // Serial.println("Received PIR triggered");
       queue_recv_pir(payload, length);
+      break;
+    case PROTO_SLEEPY_TIME:
+      // Serial.println("Received sleepy time");
+      // This is a signal to the garden to go into a low power state
+      // We don't do anything here, just stop the connection
+      Serial.println("Received sleepy time. ADD HANDLING");
+      queue_recv_sleepy_time();
       break;
     // The above are the only messages we should ever receive
     default:
@@ -270,6 +277,9 @@ void wifi_t::send_pir_triggered(uint16_t pir_index) {
 void wifi_t::send_sensor_msg(uint16_t strip, uint16_t led, uint16_t percent, uint32_t age) {
   if(!client.connected())
       return;
+
+  Serial.printf("Sending sensor update: strip %d, led %d, percent %d, age %d\n", 
+    strip, led, percent, age);
 
   msg_t msg(strip, led, percent, age);
   queue_send_push(msg);

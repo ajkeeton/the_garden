@@ -1,4 +1,7 @@
 #include "sensors.h"
+#include "common/wifi.h"
+
+extern wifi_t wifi;
 
 sensors_t::sensors_t() {
     mux.init();
@@ -40,7 +43,7 @@ void sensors_t::init(int pin_start, int pin_end,
     on_trigger_start = start;
     on_is_triggered = is;
     on_trigger_off = off;
-    on_pir = pir;   
+    on_pir = pir;
 
     // XXX It's intentionally just pin_end. Technically we'd want pin_end - 
     // pin_start AND an offset.
@@ -76,6 +79,16 @@ void sensors_t::do_on_trigger_off(int i) {
 }
 
 void sensors_t::next() {
+    uint32_t now = millis();
+    
+    // Need to periodically tell the server about the sensor state 
+    // regardless of triggers so it can detect daytime
+    bool send_update = false;
+    if(now - t_last_sensor_update_sent > T_REMOTE_SENSOR_UPDATE_DELAY) {
+        t_last_sensor_update_sent = now;
+        send_update = true;
+    }
+
     for(int i=sens_start; i<sens_end; i++) {
         mux.next();
         uint16_t raw = mux.read_raw(i);
@@ -89,25 +102,41 @@ void sensors_t::next() {
             continue;
         }
 
-        bool was_triggered = sensors[i].t_trigger_start > 0;
-        //bool is_triggered = sensors[i].update(raw);
-        sensors[i].update(raw);
-        bool is_triggered = sensors[i].t_trigger_start > 0;
+        sensor_state_t &sensor = sensors[i];
+        bool was_triggered = sensor.t_trigger_start > 0;
+        sensor.update(raw);
+        bool is_triggered = sensor.t_trigger_start > 0;
+
+        //if(is_triggered)
+        //        Serial.printf("Sensor %d triggered: value: %u, duration: %u, minmax: %u/%u/%u\n", 
+        //            i, sensor.value, sensor.age(), 
+        //            sensor.minmax.get_min(), sensor.minmax.get_max(), sensor.minmax.get_thold());
 
         // If we were not triggered, but are now, call trigger_start
         if(!was_triggered) {
-            if(is_triggered)
+            if(is_triggered) {
                 do_on_trigger_start(i);
-            continue;
+                send_update = true;
+            }
         }
-        
-        // We were triggered. Check if we still are
-        if(!is_triggered)
-            do_on_trigger_off(i);
+        else {
+            // We were triggered
+            // Check if we still are
+            if(!is_triggered)
+                do_on_trigger_off(i);
+            // We were triggered and still are,
+            else
+                do_is_triggered(i);
+        }
 
-        // We were triggered and still are,
-        else
-            do_is_triggered(i);
+        if(send_update) {
+            // Serial.printf("Sending sensor update: %d\n", i);
+            wifi.send_sensor_msg(
+                sensor_to_led_map[i].strip[0], 
+                sensor_to_led_map[i].led[0],
+                sensor.percent(), 
+                raw);
+        }
     }
 }
 
@@ -119,7 +148,7 @@ void sensors_t::button_pressed() {
         do_on_trigger_start(0);
     else
         do_is_triggered(0);
-    // Serial.printf("Button pressed: %lu\n", sensors[0].t_trigger_start);
+    Serial.printf("Button pressed, triggering\n");
 }
 
 void sensors_t::button_hold() {
@@ -137,15 +166,27 @@ void sensors_t::log_info() {
     }
     #endif
     #if 0
-    int i=0;
+    int i=0; 
     Serial.printf("Sensor %d: value: %u, age: %.03fs, minmax: %u/%u/%u\n", 
         i, sensors[i].value, (float)(sensors[i].age())/1000, 
         sensors[i].minmax.get_min(), 
         sensors[i].minmax.get_max(), 
         sensors[i].minmax.get_thold());
     #endif
-    int i = 4;
-    Serial.printf("Sensor %d: value: %u, percent: %u, age: %.03fs\n", 
-        i, sensors[i].value, sensors[i].percent(), (float)(sensors[i].age())/1000);
-    sensors[i].minmax.log_info();
+ 
+    //int i = 4;
+    // Serial.printf("Sensor %d: value: %u, percent: %u, age: %.03fs\n", 
+    //    i, sensors[i].value, sensors[i].percent(), (float)(sensors[i].age())/1000);
+    //sensors[i].minmax.log_info();
+    Serial.printf("Sensors:\n");
+    for(int i=sens_start; i<sens_end; i++) {
+        sensor_state_t &s = sensors[i];
+        Serial.printf("%d: %u|%u|%u\t", i, mux.read_raw(i), s.value, s.minmax.get_thold());
+
+        //if(sensors[i].value) {
+        //    Serial.printf("Sensor %d: value: %u, percent: %u, age: %.03fs\n", 
+        //        i, sensors[i].value, sensors[i].percent(), (float)(sensors[i].age())/1000);
+            s.minmax.log_info();
+        //}
+    }
 }

@@ -124,22 +124,31 @@ void loop1() {
                     msg.pulse.color, msg.pulse.fade, msg.pulse.spread, msg.pulse.delay);
                 break;
             case PROTO_STATE_UPDATE:
-                Serial.printf("A state update message: %u %u\n", 
+                Serial.printf("State update: %u %u\n", 
                         msg.state.pattern_idx, msg.state.score);
-                last_state = msg.state.pattern_idx;
+                //last_state = msg.state.pattern_idx;
+                primary.handle_state_update(msg.state.pattern_idx, msg.state.score);
+                secondary.handle_state_update(msg.state.pattern_idx, msg.state.score);
                 break;
             case PROTO_PIR_TRIGGERED:
                 Serial.println("A PIR sensor was triggered");
+                //primary.handle_pir();
+                //secondary.handle_pir();
+                break;
+            case PROTO_SLEEPY_TIME:
+                Serial.println("Received sleepy time message, going to sleep");
+                primary.sleepy_time();
+                secondary.sleepy_time();
                 break;
             default:
-                Serial.printf("Unknown message type: %u\n", msg.type);
+                Serial.printf("Ignoring message type: %u\n", msg.type);
         }
     }
 
     //primary.step();
     secondary.step();
     
-    primary.log_periodic();
+    //primary.log_periodic();
     secondary.log_periodic();
 }
 

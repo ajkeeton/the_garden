@@ -29,6 +29,7 @@ struct sensor_state_t {
            // Every 15 ms decay the score by 5%
             value = 0.95 * value;
             t_triggered_last_update = now;
+            //if(t_trigger_start) Serial.printf("DECAYING -> %d\n", value);
         }
     }
 
@@ -42,8 +43,12 @@ struct sensor_state_t {
         }
 
         uint32_t now = millis();
-        value = (value * 4 + val)/5; // XXX use short moving average?
+        //value = (value * 4 + val)/5; // XXX use short moving average? Do away with? Review
+        if(val > value) value = val;
         t_triggered_last_update = now;
+
+        //Serial.printf("val > thold. %u > %u, 'value': %u, max: %u\n", 
+        //        val, minmax.get_thold(), value, minmax.get_max());
 
         if(!t_trigger_start) {
             t_trigger_start = now;
@@ -123,6 +128,9 @@ struct sensors_t {
     // To keep it simple, just using an array it uints, where first 2 bytes is the strip, next 2 is the LED
     //uint32_t map_strip_led[MAX_MUX_IN];
     sensor_to_led_map_t sensor_to_led_map[MAX_MUX_IN];
+
+    // Need to periodically tell the server about the sensor state
+    uint32_t t_last_sensor_update_sent = 0;
 
     void (*on_trigger_start)(int, int, const sensor_state_t &) = NULL;
     void (*on_is_triggered)(int, int, const sensor_state_t &) = NULL;

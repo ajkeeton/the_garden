@@ -7,7 +7,8 @@ const uint16_t PROTO_VERSION = 1,
             PROTO_STATE_UPDATE = 5,
             PROTO_PULSE = 6,
             PROTO_IDENT = 7,
-            PROTO_PIR_TRIGGERED = 8;
+            PROTO_PIR_TRIGGERED = 8,
+            PROTO_SLEEPY_TIME = 9;
 
 #define PROTO_MAX_PAYLOAD 512
 #define PROTO_HEADER_SIZE 6 // 2 bytes for type, 2 for version, 2 for length
@@ -82,6 +83,8 @@ struct __attribute__((__packed__)) msg_state_t {
     uint32_t min_size() {
         return MSG_STATE_SIZE;
     }
+
+    msg_state_t() {}
 };
 
 struct __attribute__((__packed__)) msg_pir_t {
@@ -99,7 +102,6 @@ struct __attribute__((__packed__)) msg_pir_t {
         placeholder = ntohs(p16[0]);
     }
 };
-
 
 struct msg_t {
     uint16_t full_len = 0; // full length of the message including header
