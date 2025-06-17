@@ -3,7 +3,7 @@
 #include <Wire.h>
 #include <stdint.h>
 
-#define SENS_THOLD 300
+#define DEF_SENS_THOLD 800
 
 #define DEFAULT_MAX_STEPS_SHORT 6000
 #define DEFAULT_MAX_STEPS 8500
@@ -56,13 +56,10 @@
 #define LIMIT_SWITCH_LOW_1 0
 #define LIMIT_SWITCH_LOW_2 1
 #define LIMIT_SWITCH_LOW_3 2
+// Sensors
+#define SENS_IN_1 3
+/////////////////////////////////////////
 
 // Dip switches
 #define INPUT_SWITCH_0 A1
 #define INPUT_SWITCH_1 A2
-
-// Sensors
-#define SENS_IN_1 4
-
-
-/////////////////////////////////////////

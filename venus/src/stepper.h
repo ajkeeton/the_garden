@@ -23,6 +23,13 @@ enum STEP_STATE {
   STEP_DETANGLE, // reverse a little to help with detangling
 };
 
+enum STEP_PATTERN {
+  PATTERN_INIT = 0,
+  PATTERN_SUBDUED = 1,
+  PATTERN_HIGH_ENERGY = 2,
+  PATTERN_SLEEP = 3
+};
+
 enum LOG_LEVEL {
   LOG_ERROR,
   LOG_INFO,
@@ -34,6 +41,8 @@ enum LOG_LEVEL {
 
 #define STEPPER_OFF false
 #define STEPPER_ON true
+
+#define MAX_DETANGLE_TRIES 4
 
 enum TRIGGER_STAT {
     TRIGGER_OFF,
@@ -156,7 +165,10 @@ public:
 
   Limit_State limits;
   Accel accel;
-  uint8_t debug_level = LOG_DEBUG;
+  uint8_t debug_level = LOG_INFO;
+
+  int pattern = 0; // set by the gardener
+  int detangling = 0; // How many times we've tried to detangle
 
   void init(int i, int en, int step, int dir, int lsl, 
             int dmin = DELAY_MIN, int dmax = DELAY_MAX) {

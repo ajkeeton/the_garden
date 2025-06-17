@@ -74,7 +74,6 @@ void leds_t::background_update() {
     }
 }
 
-
 void venus_pod_t::step_rainbow() {
     if(!ready())
         return;

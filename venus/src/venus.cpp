@@ -1,6 +1,7 @@
 #define WADS_V2A_BOARD
 
 #include "common/common.h"
+#include "common/minmax.h"
 #include "common/wifi.h"
 #include "stepper.h"
 #include "leds.h"
@@ -12,6 +13,7 @@
 mux_t mux;
 wifi_t wifi;
 leds_t leds;
+min_max_range_t minmax(100, 1000); // Default min/max for the sensors
 
 #if USE_PWM_DRIVER
 Adafruit_PWMServoDriver step_dir = Adafruit_PWMServoDriver(0x40);
@@ -175,6 +177,8 @@ void setup1() {
   init_steppers();
   init_mode();
   leds.init();
+
+  minmax.init_avg(mux.read_raw(SENS_IN_1));
 }
 
 void setup() {
@@ -182,8 +186,13 @@ void setup() {
   pinMode(A1, INPUT);
   pinMode(A2, INPUT);
 
+  //pinMode(15, OUTPUT);
+  //digitalWrite(15, HIGH);
+
   wait_serial();
   wifi.init("venus");
+
+  //while(true) { yield() ; delay(100); }
 }
 
 void benchmark() {
@@ -228,18 +237,23 @@ void loop1() {
   mux.next();
 
   log_inputs();
-  
-  // Check if sensors override triggered
+
+  // TODO: handle sensor override button 
   uint32_t sens = mux.read_raw(SENS_IN_1);
-  // XXX Now on A1 I think...  
+
+  minmax.update(sens);
+  // Serial.printf("Sensor: %d, Min: %d, Max: %d\n", sens, minmax.avg_min, minmax.avg_max);
+  minmax.log_info();
 
   static uint32_t last = 0;
   uint32_t now = millis();
 
-  if(sens > SENS_THOLD) {
+  if(minmax.triggered_at(sens)) {
+  //if(sens > DEF_SENS_THOLD) {
+  //if(sens > minmax.get_thold()) {
       if(now > last + 500) {
         last = now;
-        Serial.printf("Triggered: %ld\n", sens);
+        Serial.printf("Triggered: %ld (%.2f std: %.2f)\n", sens, minmax.pseudo_avg, minmax.std_dev);
       }
 
       for(int i=0; i<NUM_STEPPERS; i++) {
@@ -257,4 +271,26 @@ void loop1() {
 
 void loop() {
   wifi.next();
+  
+  recv_msg_t msg;
+  while(wifi.recv_pop(msg)) {
+      switch(msg.type) {
+          case PROTO_PULSE:
+              Serial.printf("The gardener told us to pulse: %u %u %u %u\n", 
+                  msg.pulse.color, msg.pulse.fade, msg.pulse.spread, msg.pulse.delay);
+              break;
+          case PROTO_STATE_UPDATE:
+              Serial.printf("State update: %u %u\n", 
+                      msg.state.pattern_idx, msg.state.score);
+              break;
+          case PROTO_PIR_TRIGGERED:
+              Serial.println("A PIR sensor was triggered");
+              break;
+          case PROTO_SLEEPY_TIME:
+              Serial.println("Received sleepy time message");
+              break;
+          default:
+              Serial.printf("Ignoring message type: %u\n", msg.type);
+      }
+  }
 }

@@ -34,6 +34,7 @@ void Stepper::choose_next(STEP_STATE next) {
       break;
     case STEP_WIGGLE_START:
       state_next = STEP_WIGGLE_END;
+      dprintf(LOG_DEBUG, "%d: Wiggle start\n", idx);
       choose_next_wiggle();
       break;
     case STEP_WIGGLE_END:
@@ -45,16 +46,17 @@ void Stepper::choose_next(STEP_STATE next) {
         state_next = STEP_WIGGLE_START;
       }
 
+      dprintf(LOG_DEBUG, "%d: Wiggle end. Next: %d\n", idx, state_next);
       set_onoff(STEPPER_OFF);
       choose_next_wiggle();
       break;
     case STEP_RANDOM_WALK:
+      dprintf(LOG_DEBUG, "%d: Random walk start\n", idx);
       choose_next_rand_walk();
       break;
     case STEP_CLOSE:
       state_next = STEP_OPEN;
       set_target(pos_end);
-
       accel.set_pause_ms(10);
       dprintf(LOG_DEBUG, "%d: Doing close\n", idx);
       break;
@@ -73,7 +75,6 @@ void Stepper::choose_next(STEP_STATE next) {
       break;
     case STEP_TRIGGERED_INIT:
       dprintf(LOG_DEBUG, "%d: Doing triggered init\n", idx);
-
       // Start by opening a little 
       set_target(position * 0.9, settings_on_close);
       state_next = STEP_GRAB;
@@ -98,12 +99,18 @@ void Stepper::choose_next(STEP_STATE next) {
     case STEP_DETANGLE:
       dprintf(LOG_DEBUG, "%d: Doing detangle\n", idx);
       set_onoff(STEPPER_OFF);
-      accel.set_pause_ms(random(100, 800));
-      set_target(pos_end * .85, settings_on_open);
+      accel.set_pause_ms(random(100, 1000));
+
+      // XXX Revisit
+      // Hack to reset us off -pos_end/4
+      position = 0;
+      // XXX switch to using time
+      set_target(pos_end/8 * detangling, settings_on_open);
       state_next = STEP_OPEN;
       break;
     case STEP_SWEEP:
       choose_next_sweep();
+      dprintf(LOG_DEBUG, "%d: Doing sweep\n", idx);
       break;
     default:
       break;
@@ -281,8 +288,21 @@ void Stepper::run() {
 
     // This is to help with detangling
     if(state == STEP_OPEN && position < -pos_end/4) {
+      detangling++;
+      // XXX this doesn't work. We'll try to close to pos_end*.85 then open again,
+      // but even if detangled, we can hit -pos_end/4 because we lost steps
+      // Need to use time instead.
+      // See position hack in step_detangle case
       choose_next(STEP_DETANGLE);
+      if(detangling > MAX_DETANGLE_TRIES) {
+        detangling = MAX_DETANGLE_TRIES;
+        dprintf(LOG_DEBUG, "%d: Failing to detangle :/\n", idx);
+      }
       return;
+    } 
+    else {
+      detangling = 0;
+
     }
 
     digitalWrite(pin_step, step_pin_val);
