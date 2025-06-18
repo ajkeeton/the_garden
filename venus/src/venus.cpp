@@ -36,7 +36,7 @@ void init_steppers() {
   step_settings_t ss;
 
   ss.pause_ms = 10;
-  ss.accel = 0.0002;
+  ss.accel = 0.00025;
   ss.min_delay = 80;
   steppers[0].settings_on_close = ss;
   
@@ -45,7 +45,7 @@ void init_steppers() {
 
   // Wait to close
   ss.accel = 0.000025;
-  ss.pause_ms = 350;
+  ss.pause_ms = 300;
   ss.min_delay = 100;
   steppers[2].settings_on_close = ss;
 
@@ -58,7 +58,7 @@ void init_steppers() {
 
   // Open faster than the others
   ss.pause_ms = 10;
-  ss.min_delay = 100;
+  ss.min_delay = 50;
   ss.accel = 0.00015;
   steppers[2].settings_on_open = ss;
 
@@ -249,8 +249,6 @@ void loop1() {
   uint32_t now = millis();
 
   if(minmax.triggered_at(sens)) {
-  //if(sens > DEF_SENS_THOLD) {
-  //if(sens > minmax.get_thold()) {
       if(now > last + 500) {
         last = now;
         Serial.printf("Triggered: %ld (%.2f std: %.2f)\n", sens, minmax.pseudo_avg, minmax.std_dev);

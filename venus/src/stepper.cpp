@@ -63,7 +63,7 @@ void Stepper::choose_next(STEP_STATE next) {
     case STEP_OPEN:
       set_target(-INT_MAX);  // Force us to find the lower limit
       set_onoff(STEPPER_OFF);
-      accel.set_pause_ms(100);
+      accel.set_pause_ms(250);
       dprintf(LOG_DEBUG, "%d: Doing open\n", idx);
       state_next = STEP_RELAX;
       break;
@@ -87,7 +87,7 @@ void Stepper::choose_next(STEP_STATE next) {
       break;
     case STEP_GRAB_WIGGLE:
       choose_next_wiggle(pos_end * .85, pos_end * .99);
-      accel.set_pause_ms(random(10, 50));
+      accel.set_pause_ms(random(10, 150));
       dprintf(LOG_DEBUG, "%d: Doing grab wiggle\n", idx);
 
       if(--how_wiggly > 0) {
@@ -99,7 +99,7 @@ void Stepper::choose_next(STEP_STATE next) {
     case STEP_DETANGLE:
       dprintf(LOG_DEBUG, "%d: Doing detangle\n", idx);
       set_onoff(STEPPER_OFF);
-      accel.set_pause_ms(random(100, 1000));
+      accel.set_pause_ms(random(100, 500));
 
       // XXX Revisit
       // Hack to reset us off -pos_end/4
@@ -125,9 +125,9 @@ void Stepper::choose_next_wiggle() {
 }
 
 void Stepper::choose_next_wiggle(int32_t lower, int32_t upper) {
-  accel.set_pause_ms(random(10, 500));
-  set_onoff(STEPPER_OFF);
+  accel.set_pause_ms(random(250, 1500));
 
+  set_onoff(STEPPER_OFF);
   uint32_t r = random(lower, upper);
   int32_t nxt = 0;
   if (position != 0 && random() & 1)
@@ -328,6 +328,6 @@ void Stepper::trigger_close() {
       return;
   }
 
-  how_wiggly = random(2, 6);
+  how_wiggly = random(2, 4);
   choose_next(STEP_TRIGGERED_INIT);
 }

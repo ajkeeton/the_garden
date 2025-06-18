@@ -83,8 +83,10 @@ public:
     uint32_t now = micros();
 
     // NOTE: using subtraction as follows will account for integer overflow
-    if(now - t_last_update < t_pause_for)
+    if(now - t_last_update < t_pause_for) {
+      //Serial.printf("Accel: Not ready yet, %lu < %lu\n", now - t_last_update, t_pause_for);
       return false;
+    }
     
     t_pause_for = 0;
     
