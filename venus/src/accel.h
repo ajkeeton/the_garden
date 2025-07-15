@@ -74,7 +74,7 @@ public:
 
   void set_pause_min() {
     // Min time to pause before changing directions
-    t_pause_for = min(10000, t_pause_for);
+    t_pause_for = max(10000, t_pause_for);
     t_last_update = micros();
     t_move_started = 0;
   }
